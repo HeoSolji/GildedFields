@@ -6,7 +6,7 @@ import os
 import json
 import asyncio
 import data_manager
-
+from keep_alive import keep_alive
 # --- Tải TOKEN ---
 # Ưu tiên lấy TOKEN từ biến môi trường, nếu không có thì tìm trong file config.json
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
@@ -120,6 +120,7 @@ async def main():
 # Chạy hàm main
 if __name__ == "__main__":
     try:
+        keep_alive()
         asyncio.run(main())
     except KeyboardInterrupt:
         print("Bot đang tắt...")
