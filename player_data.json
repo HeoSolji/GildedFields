@@ -1,0 +1,79 @@
+{
+    "1037017668026380350": {
+        "balance": 351,
+        "inventory": {
+            "seed_carrot": 0,
+            "seed_wheat": 0,
+            "seed_watermelon": 0,
+            "harvest_watermelon": 9,
+            "seed_onion": 0,
+            "harvest_wheat": 9
+        },
+        "farm": {
+            "size": 3,
+            "plots": {
+                "0_0": {
+                    "crop": "onion",
+                    "plant_time": 1752032532.9585793,
+                    "ready_time": 1752033282.9585793
+                },
+                "0_1": {
+                    "crop": "onion",
+                    "plant_time": 1752032532.9585793,
+                    "ready_time": 1752033282.9585793
+                },
+                "0_2": {
+                    "crop": "onion",
+                    "plant_time": 1752032532.9585793,
+                    "ready_time": 1752033282.9585793
+                },
+                "1_0": {
+                    "crop": "onion",
+                    "plant_time": 1752032532.9585793,
+                    "ready_time": 1752033282.9585793
+                },
+                "1_1": {
+                    "crop": "onion",
+                    "plant_time": 1752032532.9585793,
+                    "ready_time": 1752033282.9585793
+                },
+                "1_2": {
+                    "crop": "onion",
+                    "plant_time": 1752032532.9585793,
+                    "ready_time": 1752033282.9585793
+                },
+                "2_0": {
+                    "crop": "onion",
+                    "plant_time": 1752032532.9585793,
+                    "ready_time": 1752033282.9585793
+                },
+                "2_1": {
+                    "crop": "onion",
+                    "plant_time": 1752032532.9585793,
+                    "ready_time": 1752033282.9585793
+                },
+                "2_2": {
+                    "crop": "onion",
+                    "plant_time": 1752032532.9585793,
+                    "ready_time": 1752033282.9585793
+                }
+            },
+            "notification_sent": false
+        },
+        "last_daily_claim": 1751944650.6457672,
+        "xp": 980,
+        "barn": {
+            "capacity": 5,
+            "animals": {
+                "chicken": [
+                    1751969676.6186101,
+                    1751969676.6186101
+                ]
+            }
+        },
+        "achievements": {
+            "unlocked": [],
+            "progress": {}
+        }
+    }
+}
