@@ -50,6 +50,12 @@ class Developer(commands.Cog):
         except Exception as e:
             await ctx.send(f'❌ Lỗi khi tải lại cog `{cog_name}`: ```py\n{e}\n```')
 
+    @commands.command(name='sync')
+    @commands.is_owner()
+    async def sync(self, ctx):
+        """Đồng bộ các slash command với Discord."""
+        fmt = await ctx.bot.tree.sync()
+        await ctx.send(f"Đã đồng bộ {len(fmt)} lệnh / thành công.")
 # Hàm setup để bot có thể nhận diện cog này
 async def setup(bot):
     await bot.add_cog(Developer(bot))

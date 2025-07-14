@@ -20,6 +20,13 @@ MAX_FARM_SIZE = 5
 # --- Cài đặt chăn nuôi ---
 INITIAL_BARN_CAPACITY = 5
 
+BARN_UPGRADES = {
+    # new_capacity: {"cost": chi_phí, "level_required": cấp_độ_yêu_cầu}
+    10: {"cost": 15000, "level_required": 15}, # Nâng lên sức chứa 10
+    20: {"cost": 60000, "level_required": 30}  # Nâng lên sức chứa 20
+}
+MAX_BARN_CAPACITY = 20
+
 # --- Cài đặt phần thưởng ---
 DAILY_REWARD = 50
 INITIAL_BALANCE = 100
@@ -34,14 +41,43 @@ CROP_EMOJIS = {
     "bok_choy": "🥬", "yam": "🍠", "cranberries": "🍒",
 }
 
-PLOT_EMPTY_EMOJI = "🟫"
-PLOT_READY_EMOJI = "✅"
+# Tỉ lệ ra cấp sao (cơ hội để đạt được cấp đó HOẶC CAO HƠN)
+# 0 = Thường, 1 = Bạc, 2 = Vàng, 3 = Tím (Iridium)
+STAR_QUALITY_CHANCE = {
+    1: 0.30,  # 30% cơ hội để ra ít nhất 1 sao (Bạc)
+    2: 0.15,  # 15% cơ hội để ra ít nhất 2 sao (Vàng)
+    3: 0.05,  # 5% cơ hội để ra ít nhất 3 sao (Tím)
+    5: 0.01   # 1% cơ hội để ra 5 sao (Khổng lồ)
+}
 
+# Hệ số nhân giá trị cho từng cấp sao
+STAR_QUALITY_MULTIPLIER = {
+    0: 1.0,   # Thường
+    1: 1.25,  # Bạc: +25% giá trị
+    2: 1.5,   # Vàng: +50% giá trị
+    3: 2.0,   # Tím: +100% giá trị
+    5: 9.0    # Khổng lồ (5 sao)
+}
+
+# Emoji cho từng cấp sao
+STAR_EMOJIS = {
+    1: "⭐", # Bạc
+    2: "🌟", # Vàng
+    3: "✨", # Tím
+    5: "👑",  # Khổng lồ
+    0: ""
+}
+
+PLOT_EMPTY_EMOJI = "🟫"
+# PLOT_READY_EMOJI = "✅"
+PLOT_FROZEN_EMOJI = "🧊"
+SEEDLING_EMOJI = "🌱" # Giai đoạn mầm
+SAPLING_EMOJI = "🌿"  # Giai đoạn cây non
 # --- DỮ LIỆU CÂY TRỒNG ---
 CROPS = {
     # Cây cũ đã được gán mùa
-    "wheat": {"grow_time": 300, "sell_price": 10, "seed_price": 5, "display_name": "Lúa mì", "emoji": CROP_EMOJIS["wheat"], "seasons": ["spring", "summer", "fall"]},
-    "carrot": {"grow_time": 600, "sell_price": 25, "seed_price": 10, "display_name": "Cà rốt", "emoji": CROP_EMOJIS["carrot"], "seasons": ["spring"]},
+    "wheat": {"grow_time": 180, "sell_price": 10, "seed_price": 5, "display_name": "Lúa mì", "emoji": CROP_EMOJIS["wheat"], "seasons": ["spring", "summer", "fall"]},
+    "carrot": {"grow_time": 300, "sell_price": 25, "seed_price": 10, "display_name": "Cà rốt", "emoji": CROP_EMOJIS["carrot"], "seasons": ["spring"]},
     "potato": {"grow_time": 1800, "sell_price": 80, "seed_price": 30, "display_name": "Khoai tây", "emoji": CROP_EMOJIS["potato"], "seasons": ["spring"]},
     "onion": {"grow_time": 750, "sell_price": 30, "seed_price": 12, "display_name": "Hành tây", "emoji": CROP_EMOJIS["onion"], "seasons": ["summer"]},
     "corn": {"grow_time": 1200, "sell_price": 50, "seed_price": 20, "display_name": "Ngô", "emoji": CROP_EMOJIS["corn"], "seasons": ["summer", "fall"]},
@@ -63,6 +99,11 @@ CROPS = {
     "yam": {"grow_time": 1300, "sell_price": 80, "seed_price": 30, "display_name": "Khoai lang", "emoji": CROP_EMOJIS["yam"], "seasons": ["fall"]},
     "cranberries": {"grow_time": 700, "sell_price": 40, "seed_price": 60, "display_name": "Nam việt quất", "emoji": CROP_EMOJIS["cranberries"], "seasons": ["fall"]},
 }
+
+# --- CẤU HÌNH CÂY KHỔNG LỒ ---
+GIANT_CROP_CANDIDATES = ["cauliflower", "watermelon", "pumpkin"] # Các loại cây có thể thành khổng lồ
+GIANT_CROP_CHANCE = 0.01  # 1% tỉ lệ
+GIANT_CROP_YIELD_MULTIPLIER = 9 # Sản lượng nhận được
 
 # --- DỮ LIỆU VẬT NUÔI ---
 ANIMALS = {
@@ -146,6 +187,14 @@ ACHIEVEMENTS = {
     }
 }
 
+MARKET_EVENT_CHANNEL_ID = 1393757875964215377
+
+
+PRICE_MODIFIERS = {
+    "high_demand": 1.5,  # Tăng 50%
+    "surplus": 0.7,      # Giảm 30%
+    "stable": 1.0        # Bình ổn
+}
 
 def get_grow_time_string(seconds):
     """Chuyển đổi giây sang chuỗi 'x phút y giây'."""

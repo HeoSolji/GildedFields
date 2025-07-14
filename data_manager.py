@@ -51,6 +51,48 @@ def _migrate_player_data(user_id_str, player_data):
         print(f"Thêm cờ thông báo cho người chơi {user_id_str}...")
         if 'farm' in player_data:
             player_data['farm']['notification_sent'] = True # Mặc định là True để không báo cho farm cũ
+    if 'level' not in player_data:
+        print(f"Thêm dữ liệu level/xp cho người chơi cũ {user_id_str}...")
+        player_data['level'] = 1
+        player_data['xp'] = 0
+    
+    if 'inventory' in player_data:
+        # Tạo một kho đồ mới
+        new_inventory = {}
+        is_old_format = False
+        for item_key, value in player_data['inventory'].items():
+            # Nếu value là một con số (dạng cũ), thì cần chuyển đổi
+            if isinstance(value, int):
+                is_old_format = True
+                if value > 0:
+                    # Chuyển đổi: {"harvest_wheat": 10} -> {"harvest_wheat": {"0": 10}}
+                    new_inventory[item_key] = {"0": value} 
+            else:
+                # Nếu đã là dạng mới thì giữ nguyên
+                new_inventory[item_key] = value
+
+    if 'barn' in player_data and 'notification_sent' not in player_data['barn']:
+        print(f"Thêm cờ thông báo barn cho người chơi {user_id_str}...")
+        player_data['barn']['notification_sent'] = True
+    
+    if 'inventory' in player_data:
+        inventory_copy = player_data['inventory'].copy()
+        needs_migration = any(isinstance(value, int) for value in inventory_copy.values())
+        
+        if needs_migration:
+            print(f"Nâng cấp dữ liệu inventory cho người chơi {user_id_str}...")
+            new_inventory = {}
+            for item_key, value in inventory_copy.items():
+                if isinstance(value, int): # Nếu là dạng cũ (số nguyên)
+                    if value > 0:
+                        new_inventory[item_key] = {"0": value} 
+                else: # Nếu đã là dạng mới (dict)
+                    new_inventory[item_key] = value
+            player_data['inventory'] = new_inventory
+
+        if is_old_format:
+            print(f"Nâng cấp dữ liệu inventory cho người chơi {user_id_str}...")
+            player_data['inventory'] = new_inventory
     return player_data
 
 def load_player_data():
@@ -98,7 +140,8 @@ def initialize_player(user_id):
 
             "barn": {
                 "capacity": config.INITIAL_BARN_CAPACITY,
-                "animals": {}
+                "animals": {},
+                "notification_sent": True
             },
             # --------------------------
             "last_daily_claim": None,
