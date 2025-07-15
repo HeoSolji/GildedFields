@@ -18,6 +18,7 @@ import config
 # --- Tải TOKEN từ file .env ---
 load_dotenv() 
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
+print("TOKEN nhận được:", repr(TOKEN))
 if not TOKEN:
     print("Lỗi: Không tìm thấy DISCORD_BOT_TOKEN trong file .env hoặc biến môi trường.")
     exit()
@@ -153,7 +154,7 @@ async def main():
 
 if __name__ == "__main__":
     # Dành cho Replit hosting
-    keep_alive() 
+    # keep_alive() 
     
     try:
         asyncio.run(main())
