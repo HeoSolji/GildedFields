@@ -1,4 +1,4 @@
 discord.py
-flask
+Flask
 python-dotenv
 numpy
