@@ -16,7 +16,7 @@ from keep_alive import keep_alive # Dành cho Replit
 import config
 
 # --- Tải TOKEN từ file .env ---
-load_dotenv() 
+# load_dotenv() 
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 print("TOKEN nhận được:", repr(TOKEN))
 if not TOKEN:
