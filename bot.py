@@ -18,7 +18,7 @@ import config
 # --- Tải TOKEN từ file .env ---
 load_dotenv() 
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
-print("TOKEN nhận được:", repr(TOKEN))
+# print("TOKEN nhận được:", repr(TOKEN))
 if not TOKEN:
     print("Lỗi: Không tìm thấy DISCORD_BOT_TOKEN trong file .env hoặc biến môi trường.")
     exit()
@@ -125,6 +125,78 @@ async def update_market():
         except Exception as e:
             print(f"Không thể gửi thông báo thị trường đến kênh {channel_id}: {e}")
 
+@tasks.loop(minutes=1)
+async def check_companion_planting():
+    await bot.wait_until_ready()
+    
+    player_ids = list(data_manager.GAME_DATA.keys())
+
+    for user_id in player_ids:
+        user_data = data_manager.get_player_data(user_id)
+        if not user_data: continue
+        
+        farm_data = user_data.get('farm', {})
+        plots = farm_data.get('plots', {})
+        farm_size = farm_data.get('size', 0)
+
+        # 1. Thu thập thông tin các hàng cây
+        rows_info = {}
+        for r in range(farm_size):
+            row_crop_id = None
+            is_uniform = True
+            for c in range(farm_size):
+                plot_data = plots.get(f"{r}_{c}")
+                if not plot_data or "crop" not in plot_data:
+                    is_uniform = False; break
+                
+                if row_crop_id is None:
+                    row_crop_id = plot_data['crop']
+                elif row_crop_id != plot_data['crop']:
+                    is_uniform = False; break
+            
+            if is_uniform and row_crop_id:
+                rows_info[r] = row_crop_id
+
+        # 2. Kiểm tra và áp dụng bonus
+        for r, crop_id in rows_info.items():
+            bonus = 0
+            has_companion_neighbor = False
+
+            # --- LOGIC KIỂM TRA HAI CHIỀU ---
+            # Chiều 1: Kiểm tra xem cây hiện tại có "partner" không
+            companion_info = config.COMPANION_PLANTS.get(crop_id)
+            if companion_info and (rows_info.get(r - 1) == companion_info['partner'] or rows_info.get(r + 1) == companion_info['partner']):
+                has_companion_neighbor = True
+                bonus = companion_info['bonus']
+            
+            # Chiều 2: Kiểm tra xem cây hiện tại có PHẢI LÀ "partner" của hàng xóm không
+            else:
+                for key, value in config.COMPANION_PLANTS.items():
+                    if value['partner'] == crop_id: # Nếu cây này là partner của một cây khác
+                        if rows_info.get(r - 1) == key or rows_info.get(r + 1) == key:
+                            has_companion_neighbor = True
+                            bonus = value['bonus']
+                            break
+            # ------------------------------------
+
+            # Áp dụng bonus cho tất cả cây trong hàng
+            for c in range(farm_size):
+                plot_key = f"{r}_{c}"
+                plot_data = plots.get(plot_key)
+                if plot_data:
+                    original_grow_time = config.CROPS[crop_id]['grow_time']
+                    
+                    if has_companion_neighbor and not plot_data.get('companion_bonus_applied'):
+                        new_grow_time = original_grow_time * (1 - bonus)
+                        time_saved = original_grow_time - new_grow_time
+                        plot_data['ready_time'] -= time_saved
+                        plot_data['companion_bonus_applied'] = True
+                    
+                    elif not has_companion_neighbor and plot_data.get('companion_bonus_applied'):
+                        time_added = original_grow_time * bonus
+                        plot_data['ready_time'] += time_added
+                        plot_data['companion_bonus_applied'] = False
+
 # --- SỰ KIỆN CỦA BOT ---
 @bot.event
 async def on_ready():
@@ -135,6 +207,7 @@ async def on_ready():
     
     # BẮT ĐẦU TẤT CẢ CÁC VÒNG LẶP TÁC VỤ NỀN
     auto_save_data.start()
+    check_companion_planting.start()
     check_harvest_notifications.start()
     update_market.start()
     # check_giant_crops.start() # Tạm thời tắt vì đã gộp logic
@@ -154,7 +227,7 @@ async def main():
 
 if __name__ == "__main__":
     # Dành cho Replit hosting
-    keep_alive() 
+    # keep_alive() 
     
     try:
         asyncio.run(main())

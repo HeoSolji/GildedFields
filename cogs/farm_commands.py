@@ -80,48 +80,80 @@ class Farm(commands.Cog):
     @farm.command(name="view", description="Xem nông trại của bạn hoặc của người khác.")
     @app_commands.describe(member="Người bạn muốn xem nông trại.")
     async def farm_view(self, interaction: discord.Interaction, member: discord.Member = None):
-        target_user = member or interaction.user
-        user_data = data_manager.get_player_data(target_user.id)
-        if not user_data: return await interaction.response.send_message(f"Người chơi {target_user.mention} chưa đăng ký game!")
-        
-        farm_size = user_data["farm"]["size"]
-        plots = user_data["farm"]["plots"]
-        current_time = time.time()
-        current_season = season_manager.get_current_season()['name']
-        empty_plot_emoji = config.PLOT_FROZEN_EMOJI if current_season == 'winter' else config.PLOT_EMPTY_EMOJI
-        
-        grid_rows = []
-        for r in range(farm_size):
-            row_emojis = []
-            for c in range(farm_size):
-                plot_key, plot_data = f"{r}_{c}", plots.get(f"{r}_{c}")
-                if not plot_data:
-                    row_emojis.append(empty_plot_emoji)
-                elif plot_data.get("giant_crop"):
-                    row_emojis.append(config.CROPS[plot_data["giant_crop"]]["emoji"])
-                elif plot_data.get("part_of_giant"):
-                    row_emojis.append("🟩")
-                else:
-                    crop_info = config.CROPS.get(plot_data.get("crop"))
-                    if not crop_info: row_emojis.append("❓"); continue
-                    
-                    grow_time = crop_info.get("grow_time", float('inf'))
-                    plant_time = plot_data.get("plant_time", current_time)
-                    progress = (current_time - plant_time) / grow_time if grow_time > 0 else 1
+        try:
+            await interaction.response.defer()
 
-                    if progress >= 1: row_emojis.append(crop_info["emoji"])
-                    elif progress >= 0.4: row_emojis.append(config.SAPLING_EMOJI)
-                    else: row_emojis.append(config.SEEDLING_EMOJI)
-            grid_rows.append(" ".join(row_emojis))
-        
-        embed = discord.Embed(title=f"Nông trại của {target_user.name} ({farm_size}x{farm_size})", description="\n".join(grid_rows), color=discord.Color.dark_green())
-        legend = (f"{config.SEEDLING_EMOJI}: Mầm | {config.SAPLING_EMOJI}: Cây non | 🌾🌽...: Sẵn sàng thu hoạch")
-        embed.add_field(name="Chú thích", value=legend, inline=False)
+            target_user = member or interaction.user
+            user_data = data_manager.get_player_data(target_user.id)
+            if not user_data: 
+                return await interaction.followup.send(f"Người chơi {target_user.mention} chưa đăng ký game!")
+            
+            farm_size = user_data["farm"]["size"]
+            plots = user_data["farm"]["plots"]
+            current_time = time.time()
+            
+            current_season = season_manager.get_current_season()['name']
+            empty_plot_emoji = config.PLOT_FROZEN_EMOJI if current_season == 'winter' else config.PLOT_EMPTY_EMOJI
+            
+            grid_rows = []
+            companion_rows_info = []
 
-        if target_user == interaction.user:
-            await interaction.response.send_message(embed=embed, view=FarmView(user_id=interaction.user.id))
-        else:
-            await interaction.response.send_message(embed=embed)
+            for r in range(farm_size):
+                row_emojis = []
+                # Kiểm tra thông tin xen canh cho cả hàng
+                first_plot_in_row = plots.get(f"{r}_0")
+                if first_plot_in_row and first_plot_in_row.get('companion_bonus_applied'):
+                    crop_info = config.CROPS.get(first_plot_in_row.get("crop"))
+                    if crop_info:
+                        companion_rows_info.append(f"Hàng {r+1} ({crop_info['display_name']})")
+
+                # Vòng lặp để xây dựng hiển thị cho hàng
+                for c in range(farm_size):
+                    plot_data = plots.get(f"{r}_{c}")
+
+                    # --- CẤU TRÚC IF/ELIF/ELSE ĐÚNG ---
+                    if not plot_data:
+                        row_emojis.append(empty_plot_emoji)
+                    else:
+                        crop_info = config.CROPS.get(plot_data.get("crop"))
+                        if not crop_info:
+                            row_emojis.append("❓")
+                        else:
+                            grow_time = crop_info.get("grow_time", float('inf'))
+                            plant_time = plot_data.get("plant_time", current_time)
+                            progress = (current_time - plant_time) / grow_time if grow_time > 0 else 1
+
+                            if progress >= 1:
+                                row_emojis.append(crop_info["emoji"])
+                            elif progress >= 0.4:
+                                row_emojis.append(config.SAPLING_EMOJI)
+                            else:
+                                row_emojis.append(config.SEEDLING_EMOJI)
+                
+                grid_rows.append(" ".join(row_emojis))
+            
+            embed = discord.Embed(title=f"Nông trại của {target_user.name} ({farm_size}x{farm_size})", description="\n".join(grid_rows), color=discord.Color.dark_green())
+            legend = (f"{config.SEEDLING_EMOJI}: Mầm | {config.SAPLING_EMOJI}: Cây non | 🌾🌽...: Sẵn sàng thu hoạch")
+            embed.add_field(name="Chú thích", value=legend, inline=False)
+
+            if companion_rows_info:
+                bonus_text = f"Các hàng sau đang được tăng trưởng nhanh hơn: **{', '.join(companion_rows_info)}**"
+                embed.add_field(name=f"{config.COMPANION_BONUS_EMOJI} Hiệu ứng Xen canh", value=bonus_text, inline=False)
+
+            if target_user == interaction.user:
+                await interaction.followup.send(embed=embed, view=FarmView(user_id=interaction.user.id))
+            else:
+                await interaction.followup.send(embed=embed)
+
+        except Exception as e:
+            print(f"Lỗi nghiêm trọng trong lệnh /farm view: {e}")
+            import traceback
+            traceback.print_exc()
+            if not interaction.response.is_done():
+                await interaction.response.send_message("Rất tiếc, đã có lỗi xảy ra khi xem nông trại.", ephemeral=True)
+            else:
+                await interaction.followup.send("Rất tiếc, đã có lỗi xảy ra khi xem nông trại.", ephemeral=True)
+
 
     @farm.command(name="upgrade", description="Nâng cấp kích thước nông trại của bạn.")
     async def farm_upgrade(self, interaction: discord.Interaction):
@@ -142,6 +174,7 @@ class Farm(commands.Cog):
                 for c in range(next_size):
                     if f"{r}_{c}" not in user_data['farm']['plots']: user_data['farm']['plots'][f"{r}_{c}"] = None
             data_manager.save_player_data()
+            await achievement_manager.check_achievements(interaction, user_data, "farm_size")
             await interaction.response.send_message(f"🎉 **Chúc mừng!** Bạn đã nâng cấp nông trại lên kích thước **{next_size}x{next_size}**!")
         except Exception as e:
             print(f"Lỗi trong lệnh /farm upgrade: {e}")
@@ -276,7 +309,20 @@ class Farm(commands.Cog):
                 await interaction.followup.send(f"Bạn nhận được **{total_xp_gained} XP**!")
                 await self.check_for_level_up(interaction, user_data)
             
-            await achievement_manager.check_achievements(interaction, user_data, "harvest", harvested_items)
+            total_harvested_amount = 0
+            unique_harvested_ids = []
+            for crop_id, qualities in harvested_items.items():
+                unique_harvested_ids.append(crop_id)
+                for quality, quantity in qualities.items():
+                    total_harvested_amount += quantity
+                    if int(quality) == 5: # Cây khổng lồ
+                        await achievement_manager.check_achievements(interaction, user_data, "harvest_quality", quality=5, amount=quantity)
+            
+            await achievement_manager.check_achievements(interaction, user_data, "harvest_total", amount=total_harvested_amount)
+            for crop_id in unique_harvested_ids:
+                 await achievement_manager.check_achievements(interaction, user_data, "collection", category="harvest", event_id=crop_id)
+
+            await achievement_manager.check_achievements(interaction, user_data, "harvest", harvested_items=harvested_items)
             data_manager.save_player_data()
         except Exception as e:
             print(f"Lỗi trong lệnh /harvest: {e}")
