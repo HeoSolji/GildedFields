@@ -42,6 +42,8 @@ class ConfirmGiftView(discord.ui.View):
         if sender_data['inventory'][self.item_key] == 0: del sender_data['inventory'][self.item_key]
         receiver_data['inventory'][self.item_key] = receiver_data['inventory'].get(self.item_key, 0) + self.amount
         data_manager.save_player_data()
+
+        await achievement_manager.check_achievements(interaction, sender_data, "gift")
         
         # Vô hiệu hóa các nút và cập nhật tin nhắn
         for item in self.children:

@@ -39,6 +39,8 @@ CROP_EMOJIS = {
     "watermelon": "🍉", "onion": "🧅", "parsnip": "🥕", "cauliflower": "🥦",
     "kale": "🥬", "hot_pepper": "🌶️", "radish": "🥕", "pumpkin": "🎃",
     "bok_choy": "🥬", "yam": "🍠", "cranberries": "🍒",
+    "ancient_fruit": "<:ancient_fruit:1395939543353655377>",
+    "starfruit": "<:starfruit:1395940722246680617>"  
 }
 
 # Tỉ lệ ra cấp sao (cơ hội để đạt được cấp đó HOẶC CAO HƠN)
@@ -59,6 +61,18 @@ STAR_QUALITY_MULTIPLIER = {
     5: 9.0    # Khổng lồ (5 sao)
 }
 
+# Ra khơi config
+EXPLORATION_CONFIG = {
+    "cost": 1000, # Chi phí cho mỗi chuyến đi
+    "cooldown": 1800, # Thời gian chờ (12 giờ)
+    "rewards": {
+        "nothing_chance": 0.69, # 50% không tìm thấy gì
+        "money_chance": 0.3,   # 30% tìm thấy tiền
+        "seed_chance": 0.01,    # 20% tìm thấy hạt giống bí ẩn
+        "min_money": 500,
+        "max_money": 3000
+    }
+}
 # Emoji cho từng cấp sao
 STAR_EMOJIS = {
     1: "⭐", # Bạc
@@ -98,6 +112,10 @@ CROPS = {
     "pumpkin": {"grow_time": 2800, "sell_price": 160, "seed_price": 50, "display_name": "Bí ngô", "emoji": CROP_EMOJIS["pumpkin"], "seasons": ["fall"]},
     "yam": {"grow_time": 1300, "sell_price": 80, "seed_price": 30, "display_name": "Khoai lang", "emoji": CROP_EMOJIS["yam"], "seasons": ["fall"]},
     "cranberries": {"grow_time": 700, "sell_price": 40, "seed_price": 60, "display_name": "Nam việt quất", "emoji": CROP_EMOJIS["cranberries"], "seasons": ["fall"]},
+
+    # cây ngoài biển
+    "ancient_fruit": {"grow_time": 2419200, "sell_price": 3000, "seed_price": 0, "display_name": "Quả Cổ Đại", "emoji": CROP_EMOJIS["ancient_fruit"], "seasons": ["spring", "summer", "fall"]},
+    "starfruit": {"grow_time": 1123200, "sell_price": 2500, "seed_price": 0, "display_name": "Khế", "emoji": CROP_EMOJIS["starfruit"], "seasons": ["summer"]},
 }
 
 # --- CẤU HÌNH CÂY KHỔNG LỒ ---
@@ -147,54 +165,141 @@ ACHIEVEMENTS = {
         "display_name": "Nông dân tập sự", "emoji": "🧑‍🌾",
         "description": "Đạt cấp độ 10.",
         "type": "level", "target_amount": 10,
-        "reward": {"money": 1000, "xp": 500}
+        "reward": {"money": 1000, "xp": 500},
+        "hidden": False
     },
     "level_25": {
         "display_name": "Lão nông tri điền", "emoji": "👨‍🌾",
         "description": "Đạt cấp độ 25.",
         "type": "level", "target_amount": 25,
-        "reward": {"money": 5000, "xp": 2000}
+        "reward": {"money": 5000, "xp": 2000},
+        "hidden": False
+    },
+    "farm_upgrade_1": {
+        "display_name": "Mở rộng lãnh thổ", "emoji": "🏞️",
+        "description": "Nâng cấp nông trại lên 4x4.",
+        "type": "farm_size", "target_amount": 4,
+        "reward": {"money": 2500},
+        "hidden": False
+    },
+    "earn_100000_money": {
+        "display_name": "Triệu phú nông dân", "emoji": "💰",
+        "description": "Tích lũy được 100,000 tiền trong ví.",
+        "type": "balance", "target_amount": 100000,
+        "reward": {"xp": 5000},
+        "hidden": False
+    },
+    
+    # --- Thành tựu Trồng trọt ---
+    "harvest_total_500": {
+        "display_name": "Bàn tay vàng", "emoji": "🧤",
+        "description": "Thu hoạch tổng cộng 500 nông sản.",
+        "type": "harvest_total", "target_amount": 500,
+        "reward": {"money": 2000},
+        "hidden": False
     },
     "harvest_100_wheat": {
         "display_name": "Vựa lúa", "emoji": "🌾",
-        "description": "Thu hoạch tổng cộng 100 Lúa mì.",
+        "description": "Thu hoạch 100 Lúa mì.",
         "type": "harvest", "target_id": "wheat", "target_amount": 100,
-        "reward": {"money": 500}
+        "reward": {"money": 500},
+        "hidden": False
     },
-    "harvest_50_corn": {
-        "display_name": "Vua Ngô", "emoji": "🌽",
-        "description": "Thu hoạch tổng cộng 50 Ngô.",
-        "type": "harvest", "target_id": "corn", "target_amount": 50,
-        "reward": {"money": 1000}
+    "harvest_giant_crop": {
+        "display_name": "Thần nông đãi", "emoji": "👑",
+        "description": "Thu hoạch được một cây trồng khổng lồ.",
+        "type": "harvest_quality", "target_quality": 5, "target_amount": 1,
+        "reward": {"money": 10000},
+        "hidden": True
     },
-    "craft_10_bread": {
+    "harvest_all_crops": {
+        "display_name": "Bách khoa toàn thư Nông nghiệp", "emoji": "📚",
+        "description": "Thu hoạch được ít nhất một lần mỗi loại cây trồng.",
+        "type": "collection", "category": "harvest", "target_amount": len(CROPS), # Tự động đếm
+        "reward": {"xp": 10000},
+        "hidden": False
+    },
+
+    # --- Thành tựu Chăn nuôi ---
+    "collect_total_250": {
+        "display_name": "Nhà chăn nuôi", "emoji": "🏡",
+        "description": "Thu thập tổng cộng 250 sản phẩm từ vật nuôi.",
+        "type": "collect_total", "target_amount": 250,
+        "reward": {"money": 2500},
+        "hidden": False
+    },
+    "collect_50_milk": {
+        "display_name": "Chuyên gia vắt sữa", "emoji": "🥛",
+        "description": "Thu thập 50 Sữa bò.",
+        "type": "collect", "target_id": "milk", "target_amount": 50,
+        "reward": {"money": 1500},
+        "hidden": False
+    },
+
+    # --- Thành tựu Chế tạo & Câu cá ---
+    "craft_25_bread": {
         "display_name": "Thợ làm bánh", "emoji": "🍞",
-        "description": "Chế tạo 10 Bánh mì.",
-        "type": "craft", "target_id": "bread", "target_amount": 10,
-        "reward": {"money": 750}
+        "description": "Chế tạo 25 Bánh mì.",
+        "type": "craft", "target_id": "bread", "target_amount": 25,
+        "reward": {"money": 1000},
+        "hidden": False
     },
-    "earn_10000_money": {
-        "display_name": "Tiểu phú nông", "emoji": "💰",
-        "description": "Tích lũy được 10,000 tiền trong ví.",
-        "type": "balance", "target_amount": 10000,
-        "reward": {"xp": 1000}
+    "fish_100_total": {
+        "display_name": "Cần thủ", "emoji": "🎣",
+        "description": "Câu được 100 con cá.",
+        "type": "fish_total", "target_amount": 100,
+        "reward": {"money": 2000},
+        "hidden": False
     },
-    "collect_50_eggs": {
-        "display_name": "Người nuôi gà", "emoji": "🥚",
-        "description": "Thu thập 50 Trứng gà.",
-        "type": "collect", "target_id": "egg", "target_amount": 50,
-        "reward": {"money": 1500}
+    "fish_legendary": {
+        "display_name": "Huyền thoại biển cả", "emoji": "🏆",
+        "description": "Câu được một con Cá Thần.",
+        "type": "fish", "target_id": "legendary_fish", "target_amount": 1,
+        "reward": {"money": 20000, "xp": 10000},
+        "hidden": True
+    },
+
+    # --- Thành tựu Xã hội ---
+    "gift_sent": {
+        "display_name": "Người bạn hào phóng", "emoji": "🎁",
+        "description": "Tặng một món quà cho người chơi khác.",
+        "type": "gift", "target_amount": 1,
+        "reward": {"xp": 500},
+        "hidden": True
     }
 }
 
-MARKET_EVENT_CHANNEL_ID = 1393757875964215377
-
+MARKET_EVENT_CHANNEL_ID =1395769117944053780 
+# 1393757875964215377
 
 PRICE_MODIFIERS = {
     "high_demand": 1.5,  # Tăng 50%
     "surplus": 0.7,      # Giảm 30%
     "stable": 1.0        # Bình ổn
 }
+
+
+# Dữ liệu các loại cá
+# { "tên_hệ_thống": { "tên_hiển_thị": ..., "emoji": ..., "giá_bán": ..., "độ_hiếm": ... } }
+FISHING_COOLDOWN = 60 # Thời gian chờ giữa mỗi lần câu (giây)
+
+FISH = {
+    "carp": {"display_name": "Cá Chép", "emoji": "🐟", "sell_price": 30, "rarity": 0.5},
+    "bream": {"display_name": "Cá Vền", "emoji": "🐠", "sell_price": 45, "rarity": 0.3},
+    "catfish": {"display_name": "Cá Trê", "emoji": "🐡", "sell_price": 200, "rarity": 0.1},
+    "legendary_fish": {"display_name": "Cá Thần", "emoji": "👑", "sell_price": 5000, "rarity": 0.01},
+}
+
+# --- THÊM CẤU HÌNH MỚI CHO XEN CANH ---
+
+# Danh sách các cặp cây có thể xen canh và phần thưởng
+# Cấu trúc: { "id_cây_1": {"partner": "id_cây_2", "bonus": phần_trăm_giảm} }
+# Phần thưởng sẽ được áp dụng cho cả hai cây.
+COMPANION_PLANTS = {
+    "corn": {"partner": "wheat", "bonus": 0.40},  # Ngô và Lúa mì: giảm 15% thời gian
+    "tomato": {"partner": "carrot", "bonus": 0.40} # Cà chua và Cà rốt: giảm 20% thời gian
+}
+COMPANION_BONUS_EMOJI = "✨"
 
 def get_grow_time_string(seconds):
     """Chuyển đổi giây sang chuỗi 'x phút y giây'."""

@@ -8,11 +8,11 @@ import data_manager, config, season_manager, market_manager, achievement_manager
 
 
 class ConfirmSellAllView(discord.ui.View):
-    def __init__(self, sender_id, sell_summary, total_earnings):
+    def __init__(self, sender_id, total_earnings, items_to_sell: list):
         super().__init__(timeout=30.0)
         self.sender_id = sender_id
-        self.sell_summary = sell_summary
         self.total_earnings = total_earnings
+        self.items_to_sell = items_to_sell # <-- Lưu lại danh sách chi tiết
         self.confirmed = False
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -23,8 +23,7 @@ class ConfirmSellAllView(discord.ui.View):
 
     async def on_timeout(self):
         if not self.confirmed:
-            for item in self.children:
-                item.disabled = True
+            for item in self.children: item.disabled = True
             await self.message.edit(content="Đã hết thời gian xác nhận. Giao dịch bán tất cả đã bị hủy.", embed=None, view=self)
 
     @discord.ui.button(label="Bán tất cả", style=discord.ButtonStyle.green)
@@ -32,20 +31,27 @@ class ConfirmSellAllView(discord.ui.View):
         self.confirmed = True
         user_data = data_manager.get_player_data(self.sender_id)
         
-        # Xóa tất cả vật phẩm có thể bán và cộng tiền
-        sellable_keys_to_delete = []
-        for item_key, qualities in user_data['inventory'].items():
-            if not item_key.startswith('seed_'):
-                sellable_keys_to_delete.append(item_key)
-        
-        for key in sellable_keys_to_delete:
-            del user_data['inventory'][key]
+        # --- LOGIC MỚI ---
+        # Lặp qua danh sách vật phẩm chi tiết để xóa và ghi nhận
+        for item_info in self.items_to_sell:
+            item_key = item_info["key"]
+            quality_str = item_info["quality"]
+            quantity = item_info["quantity"]
+
+            # Ghi nhận giao dịch cho market_manager
+            market_manager.record_sale(item_key, quantity)
+
+            # Xóa vật phẩm khỏi kho đồ
+            if item_key in user_data['inventory'] and quality_str in user_data['inventory'][item_key]:
+                del user_data['inventory'][item_key][quality_str]
+                if not user_data['inventory'][item_key]:
+                    del user_data['inventory'][item_key]
+        # -----------------
 
         user_data['balance'] += self.total_earnings
         data_manager.save_player_data()
 
-        for item in self.children:
-            item.disabled = True
+        for item in self.children: item.disabled = True
         
         final_embed = discord.Embed(
             title="✅ Giao dịch thành công!",
@@ -57,9 +63,9 @@ class ConfirmSellAllView(discord.ui.View):
     @discord.ui.button(label="Hủy", style=discord.ButtonStyle.red)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.confirmed = True
-        for item in self.children:
-            item.disabled = True
+        for item in self.children: item.disabled = True
         await interaction.response.edit_message(content="Đã hủy giao dịch bán tất cả.", embed=None, view=self)
+
 class Economy(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -67,7 +73,7 @@ class Economy(commands.Cog):
     def _get_sellable_items(self, user_data):
         sellable_items = []
         inventory = user_data.get("inventory", {})
-        type_order = ["crafted", "harvest", "product"]
+        type_order = ["crafted", "harvest", "product","fish"]
         for item_type_prefix in type_order:
             for item_key in sorted(inventory.keys()):
                 if item_key.startswith(item_type_prefix + "_"):
@@ -88,11 +94,24 @@ class Economy(commands.Cog):
         elif item_type == 'harvest': info = config.CROPS.get(item_id, {}); base_name, emoji, base_price = info.get('display_name'), info.get('emoji'), info.get('sell_price', 0)
         # elif item_type == 'seed': info = config.CROPS.get(item_id, {}); base_name, emoji, base_price = f"Hạt {info.get('display_name')}", info.get('emoji'), math.floor(info.get('seed_price', 0) * config.SEED_SELL_MULTIPLIER)
         elif item_type == 'product': info = config.PRODUCTS.get(item_id, {}); base_name, emoji, base_price = info.get('display_name'), info.get('emoji'), info.get('sell_price', 0)
-        
+        elif item_type == 'fish':
+            info = config.FISH.get(item_id, {}); base_name, emoji, base_price = info.get('display_name'), info.get('emoji'), info.get('sell_price', 0)
         final_price = math.floor(base_price * config.STAR_QUALITY_MULTIPLIER.get(quality, 1.0))
         display_name = f"{base_name}{star}"
         
         return display_name, emoji, final_price
+
+
+    def _get_seasonal_seeds(self, season_name):
+        """Lấy danh sách hạt giống có thể bán trong mùa hiện tại."""
+        return [(cid, cinfo) for cid, cinfo in config.CROPS.items() 
+                if season_name in cinfo.get('seasons', []) and cinfo.get('seed_price', 0) > 0]
+
+    def _get_seasonal_animals(self, season_name):
+        """Lấy danh sách vật nuôi có thể bán trong mùa hiện tại."""
+        return [(aid, ainfo) for aid, ainfo in config.ANIMALS.items() 
+                if season_name in ainfo.get('seasons', []) and ainfo.get('buy_price', 0) > 0]
+
 
     @app_commands.command(name="inventory", description="Kiểm tra kho đồ của bạn (hỗ trợ cấp sao).")
     async def inventory(self, interaction: discord.Interaction):
@@ -162,6 +181,7 @@ class Economy(commands.Cog):
                 if not user_data['inventory'][item_key]: del user_data['inventory'][item_key]
                 
                 summary_lines.append(f"• {quantity} {emoji} {display_name}")
+                market_manager.record_sale(item_key, quantity)
 
             user_data['balance'] += total_earnings
             await achievement_manager.check_achievements(interaction, user_data, "balance")
@@ -181,31 +201,43 @@ class Economy(commands.Cog):
 
     @app_commands.command(name="sellall", description="Bán tất cả vật phẩm trong kho đồ (trừ hạt giống).")
     async def sellall(self, interaction: discord.Interaction):
-        user_data = data_manager.get_player_data(interaction.user.id)
-        if not user_data: return await interaction.response.send_message('Bạn chưa đăng ký!', ephemeral=True)
+        try:
+            await interaction.response.defer(ephemeral=True)
 
-        sellable_list = self._get_sellable_items(user_data)
-        if not sellable_list: return await interaction.response.send_message("Kho đồ của bạn không có gì để bán.", ephemeral=True)
+            user_data = data_manager.get_player_data(interaction.user.id)
+            if not user_data:
+                return await interaction.followup.send('Bạn chưa đăng ký!', ephemeral=True)
 
-        total_earnings = 0
-        summary_lines = []
-        for item_key, quality_str in sellable_list:
-            quantity = user_data['inventory'][item_key][quality_str]
-            display_name, emoji, price_per_item = self._get_item_info(item_key, quality_str)
-            modifier = market_manager.get_price_modifier(item_key)
-            final_price = math.floor(price_per_item * modifier)
-            total_earned = final_price * quantity
-            total_earnings += total_earned
-            summary_lines.append(f"• {quantity} {emoji} {display_name} » {total_earned} {config.CURRENCY_SYMBOL}")
-        
-        embed = discord.Embed(title="🔍 Xác nhận Bán Tất cả", color=discord.Color.orange())
-        embed.description = "Bạn có chắc muốn bán tất cả các vật phẩm sau đây không?"
-        embed.add_field(name="Danh sách vật phẩm", value="\n".join(summary_lines), inline=False)
-        embed.add_field(name="Tổng cộng", value=f"**Bạn sẽ nhận được: {total_earnings} {config.CURRENCY_SYMBOL}**")
-        
-        view = ConfirmSellAllView(interaction.user.id, summary_lines, total_earnings)
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
-        view.message = await interaction.original_response()
+            sellable_list = self._get_sellable_items(user_data)
+            if not sellable_list:
+                return await interaction.followup.send("Kho đồ của bạn không có gì để bán.", ephemeral=True)
+
+            total_earnings = 0
+            summary_lines = []
+            items_to_sell_details = []
+            for item_key, quality_str in sellable_list:
+                quantity = user_data['inventory'][item_key][quality_str]
+                display_name, emoji, price_per_item = self._get_item_info(item_key, quality_str)
+                modifier = market_manager.get_price_modifier(item_key)
+                final_price = math.floor(price_per_item * modifier)
+                total_earned = final_price * quantity
+                total_earnings += total_earned
+                summary_lines.append(f"• {quantity} {emoji} {display_name} » {total_earned} {config.CURRENCY_SYMBOL}")
+                items_to_sell_details.append({"key": item_key, "quality": quality_str, "quantity": quantity})
+            
+            embed = discord.Embed(title="🔍 Xác nhận Bán Tất cả", color=discord.Color.orange())
+            embed.description = "Bạn có chắc muốn bán tất cả các vật phẩm sau đây không?"
+            embed.add_field(name="Danh sách vật phẩm", value="\n".join(summary_lines), inline=False)
+            embed.add_field(name="Tổng cộng", value=f"**Bạn sẽ nhận được: {total_earnings} {config.CURRENCY_SYMBOL}**")
+            
+            view = ConfirmSellAllView(interaction.user.id, total_earnings, items_to_sell_details)
+            await interaction.followup.send(embed=embed, view=view)
+            view.message = await interaction.original_response()
+
+        except Exception as e:
+            print(f"Lỗi nghiêm trọng trong lệnh /sellall: {e}")
+            if interaction.response.is_done():
+                await interaction.followup.send("Rất tiếc, đã có lỗi xảy ra khi chuẩn bị giao dịch.", ephemeral=True)
 
     @app_commands.command(name="balance", description="Kiểm tra số dư tiền của bạn.")
     async def balance(self, interaction: discord.Interaction):
@@ -229,11 +261,11 @@ class Economy(commands.Cog):
                 f"**Số tiền của bạn:** {user_balance} {config.CURRENCY_SYMBOL}")
         embed = discord.Embed(title="🛒 Cửa hàng Nông trại", description=desc, color=discord.Color.green())
 
-        seasonal_seeds = [(cid, cinfo) for cid, cinfo in config.CROPS.items() if season_name in cinfo['seasons']]
+        seasonal_seeds = self._get_seasonal_seeds(season_name)
         seed_lines = [f"**{i+1}.** {info['emoji']} Hạt {info['display_name']} - {info['seed_price']} {config.CURRENCY_SYMBOL}" for i, (cid, info) in enumerate(seasonal_seeds)]
         embed.add_field(name="Hạt Giống (Dùng: /buyseed)", value="\n".join(seed_lines) if seed_lines else "Không có hạt giống nào được bán trong mùa này.", inline=False)
 
-        seasonal_animals = [(aid, ainfo) for aid, ainfo in config.ANIMALS.items() if season_name in ainfo['seasons']]
+        seasonal_animals = self._get_seasonal_animals(season_name)
         animal_lines = [f"**{i+1}.** {info['emoji']} {info['display_name']} - {info['buy_price']} {config.CURRENCY_SYMBOL}" for i, (aid, info) in enumerate(seasonal_animals)]
         embed.add_field(name="Vật Nuôi (Dùng: /buyanimal)", value="\n".join(animal_lines) if animal_lines else "Không có vật nuôi nào được bán trong mùa này.", inline=False)
         
@@ -250,7 +282,7 @@ class Economy(commands.Cog):
             if số_lượng <= 0: return await interaction.response.send_message("Số lượng phải lớn hơn 0.", ephemeral=True)
 
             current_season = season_manager.get_current_season()['name']
-            seasonal_shop_items = [(cid, cinfo) for cid, cinfo in config.CROPS.items() if current_season in cinfo['seasons']]
+            seasonal_shop_items = self._get_seasonal_seeds(current_season)
             
             index = số_thứ_tự - 1
             if not (0 <= index < len(seasonal_shop_items)): return await interaction.response.send_message(f'STT `{số_thứ_tự}` không hợp lệ cho mùa này.', ephemeral=True)
@@ -284,7 +316,8 @@ class Economy(commands.Cog):
         if số_lượng <= 0: return await interaction.response.send_message("Số lượng phải lớn hơn 0.", ephemeral=True)
 
         current_season = season_manager.get_current_season()['name']
-        seasonal_shop_items = [(aid, ainfo) for aid, ainfo in config.ANIMALS.items() if current_season in ainfo['seasons']]
+        seasonal_shop_items = self._get_seasonal_animals(current_season)
+
         index = số_thứ_tự - 1
         if not (0 <= index < len(seasonal_shop_items)): return await interaction.response.send_message(f'STT `{số_thứ_tự}` không hợp lệ cho mùa này.', ephemeral=True)
         

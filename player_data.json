@@ -1,63 +1,25 @@
 {
     "1037017668026380350": {
-        "balance": 167,
+        "balance": 8159,
         "inventory": {
-            "harvest_wheat": {
-                "0": 13,
-                "1": 7,
-                "2": 4,
-                "3": 3
+            "seed_starfruit": {
+                "0": 1
             }
         },
         "farm": {
             "size": 3,
             "plots": {
-                "0_0": {
-                    "crop": "wheat",
-                    "plant_time": 1752715639.1355746,
-                    "ready_time": 1752715819.135575,
-                    "quality": 0
-                },
-                "0_1": {
-                    "crop": "wheat",
-                    "plant_time": 1752715639.1358821,
-                    "ready_time": 1752715819.1358824,
-                    "quality": 1
-                },
-                "0_2": {
-                    "crop": "wheat",
-                    "plant_time": 1752715639.136111,
-                    "ready_time": 1752715819.1361113,
-                    "quality": 0
-                },
-                "1_0": {
-                    "crop": "wheat",
-                    "plant_time": 1752715639.1363182,
-                    "ready_time": 1752715819.1363184,
-                    "quality": 0
-                },
-                "1_1": {
-                    "crop": "wheat",
-                    "plant_time": 1752715639.1365237,
-                    "ready_time": 1752715819.1365237,
-                    "quality": 2
-                },
+                "0_0": null,
+                "0_1": null,
+                "0_2": null,
+                "1_0": null,
+                "1_1": null,
                 "1_2": null,
-                "2_0": {
-                    "crop": "wheat",
-                    "plant_time": 1752715639.1368756,
-                    "ready_time": 1752715819.1368759,
-                    "quality": 1
-                },
+                "2_0": null,
                 "2_1": null,
-                "2_2": {
-                    "crop": "wheat",
-                    "plant_time": 1752715639.1372724,
-                    "ready_time": 1752715819.1372726,
-                    "quality": 1
-                }
+                "2_2": null
             },
-            "notification_sent": false
+            "notification_sent": true
         },
         "barn": {
             "capacity": 5,
@@ -66,7 +28,7 @@
         },
         "last_daily_claim": null,
         "level": 2,
-        "xp": 30,
+        "xp": 65,
         "achievements": {
             "unlocked": [],
             "progress": {

@@ -1,158 +1,84 @@
 # data_manager.py
+from dotenv import load_dotenv
+load_dotenv()
 
-import json
 import os
-import config # Import file cấu hình
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
+import config
 
-# Biến toàn cục để lưu trữ dữ liệu trong bộ nhớ
+# --- KẾT NỐI DATABASE ---
+MONGO_URI = os.getenv('MONGO_CONNECTION_STRING')
+if not MONGO_URI:
+    raise Exception("MONGO_CONNECTION_STRING không được tìm thấy trong file .env")
+
+# Tạo một client MongoDB mới
+client = MongoClient(MONGO_URI, server_api=ServerApi('1'))
+db = client.farmbot_db # Tên database của bạn
+player_collection = db.players # Tên collection (giống như bảng)
+
+# Gửi một ping để xác nhận kết nối thành công
+try:
+    client.admin.command('ping')
+    print("Ping thành công! Đã kết nối tới MongoDB.")
+except Exception as e:
+    print(e)
+
+# GAME_DATA bây giờ sẽ hoạt động như một bộ nhớ đệm (cache)
 GAME_DATA = {}
 
-def _migrate_player_data(user_id_str, player_data):
-    """Kiểm tra và nâng cấp cấu trúc dữ liệu của người chơi nếu cần."""
-    # Nâng cấp cấu trúc Farm (Giữ nguyên)
-    if 'farm' in player_data and (not isinstance(player_data['farm'], dict) or 'size' not in player_data['farm']):
-        print(f"Nâng cấp dữ liệu farm cho người chơi {user_id_str}...")
-        old_plots = player_data.get('farm', {})
-        player_data['farm'] = {
-            'size': config.FARM_GRID_SIZE,
-            'plots': old_plots
-        }
-    
-    # Nâng cấp dữ liệu Barn (Giữ nguyên)
-    if 'barn' not in player_data:
-        print(f"Thêm dữ liệu barn cho người chơi cũ {user_id_str}...")
-        player_data['barn'] = {
-            "capacity": config.INITIAL_BARN_CAPACITY,
-            "animals": {}
-        }
-    
-    # --- THÊM LOGIC MỚI: Chuyển đổi cấu trúc animals ---
-    if 'animals' in player_data['barn']:
-        for animal_id, data in player_data['barn']['animals'].items():
-            # Nếu dữ liệu vẫn là dạng cũ (có 'count'), thì chuyển đổi nó
-            if isinstance(data, dict) and 'count' in data:
-                print(f"Chuyển đổi dữ liệu animal cho người chơi {user_id_str}...")
-                count = data['count']
-                last_collected = data['last_collected']
-                production_time = config.ANIMALS[animal_id]['production_time']
-                
-                # Tạo danh sách các mốc thời gian sẵn sàng cho từng con vật
-                ready_times = [last_collected + production_time] * count
-                player_data['barn']['animals'][animal_id] = ready_times
-                break # Chỉ cần chạy 1 lần là đủ
-    
-    if 'achievements' not in player_data:
-        print(f"Thêm dữ liệu achievements cho người chơi cũ {user_id_str}...")
-        player_data['achievements'] = {
-            "unlocked": [],
-            "progress": {}
-        }
-    if 'notification_sent' not in player_data.get('farm', {}):
-        print(f"Thêm cờ thông báo cho người chơi {user_id_str}...")
-        if 'farm' in player_data:
-            player_data['farm']['notification_sent'] = True # Mặc định là True để không báo cho farm cũ
-    if 'level' not in player_data:
-        print(f"Thêm dữ liệu level/xp cho người chơi cũ {user_id_str}...")
-        player_data['level'] = 1
-        player_data['xp'] = 0
-    
-    if 'inventory' in player_data:
-        # Tạo một kho đồ mới
-        new_inventory = {}
-        is_old_format = False
-        for item_key, value in player_data['inventory'].items():
-            # Nếu value là một con số (dạng cũ), thì cần chuyển đổi
-            if isinstance(value, int):
-                is_old_format = True
-                if value > 0:
-                    # Chuyển đổi: {"harvest_wheat": 10} -> {"harvest_wheat": {"0": 10}}
-                    new_inventory[item_key] = {"0": value} 
-            else:
-                # Nếu đã là dạng mới thì giữ nguyên
-                new_inventory[item_key] = value
-
-    if 'barn' in player_data and 'notification_sent' not in player_data['barn']:
-        print(f"Thêm cờ thông báo barn cho người chơi {user_id_str}...")
-        player_data['barn']['notification_sent'] = True
-    
-    if 'inventory' in player_data:
-        inventory_copy = player_data['inventory'].copy()
-        needs_migration = any(isinstance(value, int) for value in inventory_copy.values())
-        
-        if needs_migration:
-            print(f"Nâng cấp dữ liệu inventory cho người chơi {user_id_str}...")
-            new_inventory = {}
-            for item_key, value in inventory_copy.items():
-                if isinstance(value, int): # Nếu là dạng cũ (số nguyên)
-                    if value > 0:
-                        new_inventory[item_key] = {"0": value} 
-                else: # Nếu đã là dạng mới (dict)
-                    new_inventory[item_key] = value
-            player_data['inventory'] = new_inventory
-
-        if is_old_format:
-            print(f"Nâng cấp dữ liệu inventory cho người chơi {user_id_str}...")
-            player_data['inventory'] = new_inventory
-    return player_data
-
 def load_player_data():
-    """Tải dữ liệu và tự động nâng cấp cấu trúc cho người chơi cũ."""
+    """Tải tất cả dữ liệu người chơi từ MongoDB vào cache."""
     global GAME_DATA
-    if os.path.exists(config.PLAYER_DATA_FILE):
-        with open(config.PLAYER_DATA_FILE, 'r') as f:
-            loaded_data = json.load(f)
-            # Chạy qua từng người chơi để nâng cấp nếu cần
-            for user_id, player_data in loaded_data.items():
-                GAME_DATA[user_id] = _migrate_player_data(user_id, player_data)
-    else:
-        GAME_DATA = {}
-    print(f"Đã tải dữ liệu của {len(GAME_DATA)} người chơi.")
+    all_players = player_collection.find({})
+    for player in all_players:
+        user_id = player.pop('_id') # MongoDB dùng _id, ta chuyển nó thành key
+        GAME_DATA[user_id] = player
+    print(f"Đã tải dữ liệu của {len(GAME_DATA)} người chơi từ MongoDB vào cache.")
 
 def save_player_data():
-    """Lưu dữ liệu người chơi từ bộ nhớ vào file JSON."""
-    with open(config.PLAYER_DATA_FILE, 'w') as f:
-        json.dump(GAME_DATA, f, indent=4)
-    # print(f"Đã lưu dữ liệu của {len(GAME_DATA)} người chơi.") # Có thể bỏ comment để debug
+    """Lưu tất cả dữ liệu từ cache lên MongoDB."""
+    if not GAME_DATA:
+        return
+
+    for user_id, data in GAME_DATA.items():
+        # Dùng update_one với upsert=True: nếu user_id đã tồn tại thì cập nhật, nếu chưa có thì tạo mới.
+        player_collection.update_one(
+            {'_id': user_id},
+            {'$set': data},
+            upsert=True
+        )
+    print(f"Đã đồng bộ dữ liệu của {len(GAME_DATA)} người chơi lên MongoDB.")
 
 def get_player_data(user_id):
-    """Lấy dữ liệu của một người chơi. Trả về None nếu chưa đăng ký."""
+    """Lấy dữ liệu của người chơi từ cache."""
     return GAME_DATA.get(str(user_id))
 
 def initialize_player(user_id):
-    """Khởi tạo dữ liệu cho người chơi mới với cấu trúc farm mới."""
+    """Khởi tạo dữ liệu cho người chơi mới trong cache (sẽ được lưu sau)."""
     user_id_str = str(user_id)
-    if user_id_str not in GAME_DATA:
-        initial_farm_plots = {
-            f"{r}_{c}": None 
-            for r in range(config.FARM_GRID_SIZE) 
-            for c in range(config.FARM_GRID_SIZE)
-        }
+    if user_id_str in GAME_DATA:
+        return False
 
-        GAME_DATA[user_id_str] = {
-            "balance": config.INITIAL_BALANCE,
-            "inventory": {},
-            # --- CẤU TRÚC FARM MỚI ---
-            "farm": {
-                "size": config.FARM_GRID_SIZE,
-                "plots": initial_farm_plots,
-                "notification_sent": True
-            },
-
-            "barn": {
-                "capacity": config.INITIAL_BARN_CAPACITY,
-                "animals": {},
-                "notification_sent": True
-            },
-            # --------------------------
-            "last_daily_claim": None,
-            "level": 1,
-            "xp": 0,
-            "achievements": {
-            "unlocked": [], # Danh sách ID các thành tựu đã mở khóa
-            "progress": {}  # Dữ liệu theo dõi tiến độ, ví dụ: {"harvest_wheat": 50}
-            }
-        }
-        print(f"Đã khởi tạo dữ liệu cho người chơi {user_id_str}")
-        save_player_data() 
-        return True 
-    return False 
+    # Cấu trúc dữ liệu cho người chơi mới
+    initial_farm_plots = {f"{r}_{c}": None for r in range(config.FARM_GRID_SIZE) for c in range(config.FARM_GRID_SIZE)}
+    
+    GAME_DATA[user_id_str] = {
+        "balance": config.INITIAL_BALANCE,
+        "inventory": {},
+        "farm": {"size": config.FARM_GRID_SIZE, "plots": initial_farm_plots, "notification_sent": True},
+        "barn": {"capacity": config.INITIAL_BARN_CAPACITY, "animals": {}, "notification_sent": True},
+        "last_daily_claim": None,
+        "level": 1,
+        "xp": 0,
+        "achievements": {"unlocked": [], "progress": {}}
+    }
+    
+    # Lưu người chơi mới này lên DB ngay lập tức
+    player_collection.update_one(
+        {'_id': user_id_str},
+        {'$set': GAME_DATA[user_id_str]},
+        upsert=True
+    )
+    print(f"Đã khởi tạo và lưu người chơi mới {user_id_str} lên MongoDB.")
+    return True
