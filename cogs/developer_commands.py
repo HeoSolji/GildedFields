@@ -146,5 +146,28 @@ class Developer(commands.Cog):
         
         data_manager.save_player_data()
         await interaction.response.send_message(f"Đã xóa sạch dữ liệu thành tựu của {target_user.mention}.", ephemeral=True)
+    
+    @dev.command(name="resetmachines", description="Reset tất cả máy móc của một người chơi về trạng thái 'rảnh rỗi'.")
+    @app_commands.describe(member="Người chơi muốn reset (mặc định là bạn).")
+    async def reset_machines(self, interaction: discord.Interaction, member: discord.Member = None):
+        if not await self.bot.is_owner(interaction.user):
+            return await interaction.response.send_message("Bạn không có quyền dùng lệnh này!", ephemeral=True)
+
+        target_user = member or interaction.user
+        user_data = data_manager.get_player_data(target_user.id)
+        if not user_data:
+            return await interaction.response.send_message(f"Người chơi {target_user.mention} chưa đăng ký.", ephemeral=True)
+            
+        if 'machines' in user_data and 'seed_maker' in user_data['machines']:
+            for machine in user_data['machines']['seed_maker']:
+                machine['state'] = 'idle'
+                machine.pop('input_key', None)
+                machine.pop('input_qty', None)
+                machine.pop('finish_time', None)
+            
+            data_manager.save_player_data()
+            await interaction.response.send_message(f"Đã reset tất cả Máy Tạo Hạt Giống của {target_user.mention} về trạng thái rảnh rỗi.", ephemeral=True)
+        else:
+            await interaction.response.send_message(f"Không tìm thấy dữ liệu máy móc để reset cho {target_user.mention}.", ephemeral=True)
 async def setup(bot):
     await bot.add_cog(Developer(bot))

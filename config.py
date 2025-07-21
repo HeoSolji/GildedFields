@@ -114,8 +114,8 @@ CROPS = {
     "cranberries": {"grow_time": 700, "sell_price": 40, "seed_price": 60, "display_name": "Nam việt quất", "emoji": CROP_EMOJIS["cranberries"], "seasons": ["fall"]},
 
     # cây ngoài biển
-    "ancient_fruit": {"grow_time": 2419200, "sell_price": 3000, "seed_price": 0, "display_name": "Quả Cổ Đại", "emoji": CROP_EMOJIS["ancient_fruit"], "seasons": ["spring", "summer", "fall"]},
-    "starfruit": {"grow_time": 1123200, "sell_price": 2500, "seed_price": 0, "display_name": "Khế", "emoji": CROP_EMOJIS["starfruit"], "seasons": ["summer"]},
+    "ancient_fruit": {"grow_time": 2419200, "sell_price": 15000, "seed_price": 0, "display_name": "Quả Cổ Đại", "emoji": CROP_EMOJIS["ancient_fruit"], "seasons": ["spring", "summer", "fall"]},
+    "starfruit": {"grow_time": 1123200, "sell_price": 5000, "seed_price": 0, "display_name": "Khế", "emoji": CROP_EMOJIS["starfruit"], "seasons": ["summer"]},
 }
 
 # --- CẤU HÌNH CÂY KHỔNG LỒ ---
@@ -157,6 +157,16 @@ RECIPES = {
     "mayonnaise": {"display_name": "Sốt Mayonnaise", "emoji": "🧴", "sell_price": 100, "ingredients": {"product_egg": 2}},
     "cheese": {"display_name": "Phô mai bò", "emoji": "🧀", "sell_price": 300, "ingredients": {"product_milk": 2}},
     "goat_cheese": {"display_name": "Phô mai dê", "emoji": "🧀", "sell_price": 450, "ingredients": {"product_goat_milk": 1}},
+    "seed_maker": {
+    "display_name": "Máy Tạo Hạt Giống",
+    "emoji": "🖨️",
+    "sell_price": 0,
+    "ingredients": {
+        "harvest_wheat": 50,
+        "harvest_corn": 25 
+    },
+    "type": "machine"
+    }
 }
 
 ACHIEVEMENTS = {
@@ -300,6 +310,20 @@ COMPANION_PLANTS = {
     "tomato": {"partner": "carrot", "bonus": 0.40} # Cà chua và Cà rốt: giảm 20% thời gian
 }
 COMPANION_BONUS_EMOJI = "✨"
+
+# --- THÊM CẤU HÌNH MỚI CHO MÁY TẠO HẠT GIỐNG ---
+SEED_MAKER_CONFIG = {
+    "time_per_item": 60,
+    "blacklist": ["starfruit", "ancient_fruit"],
+    "chance_same_seed": 0.95,  # 95% ra hạt giống cùng loại
+    "min_same_seed": 1,
+    "max_same_seed": 2,
+    "chance_mixed_seeds": 0.04, # 4% ra hạt hỗn hợp
+    "min_mixed_seeds": 1,
+    "max_mixed_seeds": 3,
+    # 1% còn lại sẽ là cơ hội ra hạt hiếm
+}
+
 
 def get_grow_time_string(seconds):
     """Chuyển đổi giây sang chuỗi 'x phút y giây'."""
