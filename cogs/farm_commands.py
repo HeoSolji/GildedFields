@@ -11,6 +11,8 @@ import season_manager
 import random
 import achievement_manager
 from utils import determine_quality
+import math
+import asyncio
 
 # --- CLASS VIEW ĐỂ CHỨA NÚT BẤM (Giữ nguyên) ---
 class FarmView(discord.ui.View):
@@ -41,6 +43,181 @@ class FarmView(discord.ui.View):
                 growing_crops_details.append(f"**Ô ({r+1},{c+1})** {crop_info['emoji']}: Còn lại `{str(td)}`")
         content = "\n".join(growing_crops_details) if growing_crops_details else "Bạn không có cây nào đang lớn cả!"
         await interaction.response.send_message(content, ephemeral=True)
+
+# --- VIEW CHO LỆNH /FARM DESIGN ---
+class SeedSelect(discord.ui.Select):
+    """Menu thả xuống để chọn hạt giống."""
+    def __init__(self, plantable_seeds: list):
+        options = [
+            discord.SelectOption(
+                label=f"Hạt {config.CROPS.get(key.split('_',1)[1], {}).get('display_name', '?')}",
+                value=key,
+                emoji=config.CROPS.get(key.split('_',1)[1], {}).get('emoji')
+            ) for key in plantable_seeds
+        ]
+        super().__init__(placeholder="1. Chọn một loại hạt giống...", row=0, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        # Lưu lại lựa chọn của người dùng vào view và xác nhận âm thầm
+        self.view.current_seed = self.values[0]
+        print(f"[DESIGN DEBUG] Đã chọn hạt giống: {self.view.current_seed}")
+        await interaction.response.defer()
+
+class FarmDesignView(discord.ui.View):
+    """Giao diện thiết kế nông trại có phân trang và xử lý state."""
+    def __init__(self, interaction: discord.Interaction, user_data: dict):
+        super().__init__(timeout=600.0)
+        self.interaction = interaction
+        self.user_data = user_data
+        self.farm_size = user_data['farm']['size']
+        self.plots = user_data['farm']['plots']
+        self.message = None # Sẽ được gán sau khi gửi tin nhắn
+        
+        self.design = {}
+        self.current_seed = None
+        self.page = 0
+        self.rows_per_page = 3
+        self.total_pages = math.ceil(self.farm_size / self.rows_per_page)
+
+        self.rebuild_view()
+
+    def rebuild_view(self):
+        """Xóa và xây dựng lại các thành phần giao diện dựa trên state hiện tại."""
+        print(f"[DESIGN DEBUG] Đang vẽ lại giao diện trang {self.page}")
+        self.clear_items()
+        
+        # Hàng 0: Menu chọn hạt giống
+        plantable_seeds = [key for key, val in self.user_data.get("inventory", {}).items() if key.startswith("seed_") and val.get("0", 0) > 0]
+        self.add_item(SeedSelect(plantable_seeds))
+
+        # Hàng 1-3: Lưới nông trại
+        start_row = self.page * self.rows_per_page
+        end_row = min(start_row + self.rows_per_page, self.farm_size)
+
+        for r in range(start_row, end_row):
+            for c in range(self.farm_size):
+                plot_key = f"{r}_{c}"
+                view_row = (r % self.rows_per_page) + 1
+                button = discord.ui.Button(style=discord.ButtonStyle.secondary, custom_id=plot_key, row=view_row)
+
+                if self.plots.get(plot_key) is not None:
+                    button.disabled = True
+                    button.emoji = "❌"
+                else:
+                    selected_seed = self.design.get(plot_key)
+                    if selected_seed:
+                        button.emoji = config.CROPS[selected_seed.split('_',1)[1]]['emoji']
+                    else:
+                        button.emoji = config.PLOT_EMPTY_EMOJI
+
+                button.callback = self.on_plot_button_click
+                self.add_item(button)
+
+        # Hàng 4: Các nút điều khiển
+        prev_button = discord.ui.Button(label="◀️", style=discord.ButtonStyle.grey, row=4, custom_id="prev_page", disabled=(self.page == 0))
+        prev_button.callback = self.change_page
+        self.add_item(prev_button)
+
+        next_button = discord.ui.Button(label="▶️", style=discord.ButtonStyle.grey, row=4, custom_id="next_page", disabled=(self.page >= self.total_pages - 1))
+        next_button.callback = self.change_page
+        self.add_item(next_button)
+
+        confirm_button = discord.ui.Button(label="Xác nhận Trồng", style=discord.ButtonStyle.green, row=4, custom_id="confirm")
+        confirm_button.callback = self.confirm_planting
+        self.add_item(confirm_button)
+
+        cancel_button = discord.ui.Button(label="Hủy", style=discord.ButtonStyle.red, row=4, custom_id="cancel")
+        cancel_button.callback = self.cancel
+        self.add_item(cancel_button)
+
+    async def _update_view(self, interaction: discord.Interaction):
+        """Hàm trung tâm để cập nhật giao diện sau mỗi hành động."""
+        self.rebuild_view()
+        await interaction.edit_original_response(view=self)
+
+    async def change_page(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        if interaction.data['custom_id'] == 'next_page': self.page += 1
+        else: self.page -= 1
+        print(f"[DESIGN DEBUG] Chuyển trang: {self.page}")
+        await self._update_view(interaction)
+
+    async def on_plot_button_click(self, interaction: discord.Interaction):
+        if not self.current_seed:
+            return await interaction.response.send_message("Vui lòng chọn một loại hạt giống từ menu trước!", ephemeral=True)
+        
+        await interaction.response.defer()
+        plot_key = interaction.data['custom_id']
+        if self.design.get(plot_key) == self.current_seed: del self.design[plot_key]
+        else: self.design[plot_key] = self.current_seed
+        print(f"[DESIGN DEBUG] Cập nhật thiết kế: {self.design}")
+        await self._update_view(interaction)
+
+    async def confirm_planting(self, interaction: discord.Interaction):
+        try:
+            # 1. Báo cho Discord biết bot đang xử lý
+            await interaction.response.defer()
+
+            if not self.design:
+                return await interaction.followup.send("Bạn chưa thiết kế gì cả!", ephemeral=True)
+
+            # 2. Lấy dữ liệu mới nhất của người chơi tại thời điểm bấm nút
+            user_data = data_manager.get_player_data(interaction.user.id)
+            if not user_data:
+                return await interaction.followup.send("Không tìm thấy dữ liệu người chơi.", ephemeral=True)
+
+            # 3. Kiểm tra lại số lượng hạt giống một lần cuối
+            seeds_needed = {}
+            for plot_key, seed_key in self.design.items():
+                seeds_needed[seed_key] = seeds_needed.get(seed_key, 0) + 1
+            
+            for seed_key, needed_amount in seeds_needed.items():
+                owned_amount = user_data.get('inventory', {}).get(seed_key, {}).get('0', 0)
+                if owned_amount < needed_amount:
+                    crop_id = seed_key.split('_', 1)[1]
+                    crop_name = config.CROPS[crop_id]['display_name']
+                    return await interaction.followup.send(f"Không đủ hạt giống! Cần {needed_amount} Hạt {crop_name} nhưng bạn chỉ có {owned_amount}.", ephemeral=True)
+
+            # 4. Nếu đủ, thực hiện trồng cây
+            planted_count = 0
+            for plot_key, seed_key in self.design.items():
+                crop_id = seed_key.split('_', 1)[1]
+                crop_info = config.CROPS[crop_id]
+                quality = determine_quality()
+                
+                user_data['farm']['plots'][plot_key] = {
+                    "crop": crop_id, "plant_time": time.time(), 
+                    "ready_time": time.time() + crop_info["grow_time"], "quality": quality
+                }
+                
+                user_data['inventory'][seed_key]['0'] -= 1
+                if user_data['inventory'][seed_key]['0'] <= 0: del user_data['inventory'][seed_key]
+                
+                planted_count += 1
+            
+            user_data['farm']['notification_sent'] = False
+            
+            # 5. Lưu dữ liệu một cách bất đồng bộ để không làm treo bot
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, data_manager.save_player_data)
+
+            # 6. Vô hiệu hóa giao diện và thông báo thành công
+            for child in self.children:
+                child.disabled = True
+            
+            # Dùng interaction.message.edit để sửa tin nhắn chứa nút bấm
+            await interaction.edit_original_response(content=f"✅ Đã trồng thành công **{planted_count}** cây theo thiết kế của bạn!", embed=None, view=self)
+
+        except Exception as e:
+            print(f"Lỗi nghiêm trọng trong nút Xác nhận Trồng: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send("Rất tiếc, đã có lỗi nghiêm trọng xảy ra. Vui lòng thử lại.", ephemeral=True)
+
+    async def cancel(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        for child in self.children: child.disabled = True
+        await interaction.edit_original_response(content="Đã hủy chế độ thiết kế.", view=self, embed=None)
 
 
 class Farm(commands.Cog):
@@ -157,7 +334,6 @@ class Farm(commands.Cog):
 
     @farm.command(name="upgrade", description="Nâng cấp kích thước nông trại của bạn.")
     async def farm_upgrade(self, interaction: discord.Interaction):
-        # ... (Nội dung hàm này giữ nguyên như phiên bản có try-except)
         try:
             user_data = data_manager.get_player_data(interaction.user.id)
             if not user_data: return await interaction.response.send_message("Bạn chưa đăng ký!", ephemeral=True)
@@ -179,6 +355,31 @@ class Farm(commands.Cog):
         except Exception as e:
             print(f"Lỗi trong lệnh /farm upgrade: {e}")
             await interaction.response.send_message("Có lỗi xảy ra khi nâng cấp.", ephemeral=True)
+
+    @farm.command(name="design", description="Mở giao diện thiết kế nông trại trực quan.")
+    async def farm_design(self, interaction: discord.Interaction):
+        try:
+            await interaction.response.defer(ephemeral=True)
+            user_data = data_manager.get_player_data(interaction.user.id)
+            if not user_data: return await interaction.followup.send("Bạn cần `/register` trước!")
+            
+            plantable_seeds = self._get_plantable_seeds(user_data)
+            if not plantable_seeds: return await interaction.followup.send("Bạn không có hạt giống nào để thiết kế.")
+            
+            embed = discord.Embed(
+                title="🖋️ Chế độ Thiết kế Nông trại",
+                description="1. Chọn một loại hạt giống từ menu.\n2. Bấm vào các ô đất trống để 'vẽ' thiết kế.\n3. Dùng nút ◀️▶️ để lật trang nếu farm lớn.\n4. Nhấn 'Xác nhận Trồng' khi hoàn tất.",
+                color=discord.Color.teal()
+            )
+            
+            view = FarmDesignView(interaction, user_data)
+            await interaction.followup.send(embed=embed, view=view)
+            view.message = await interaction.original_response()
+        except Exception as e:
+            print(f"Lỗi nghiêm trọng trong lệnh /farm design: {e}")
+            import traceback
+            traceback.print_exc()
+
 
     # --- CÁC LỆNH ĐỘC LẬP KHÁC ---
     @app_commands.command(name="seeds", description="Xem danh sách các loại hạt giống bạn có thể trồng.")

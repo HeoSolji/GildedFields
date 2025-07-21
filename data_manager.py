@@ -63,7 +63,7 @@ def initialize_player(user_id):
     # Cấu trúc dữ liệu cho người chơi mới
     initial_farm_plots = {f"{r}_{c}": None for r in range(config.FARM_GRID_SIZE) for c in range(config.FARM_GRID_SIZE)}
     
-    GAME_DATA[user_id_str] = {
+    new_player_data = {
         "balance": config.INITIAL_BALANCE,
         "inventory": {},
         "farm": {"size": config.FARM_GRID_SIZE, "plots": initial_farm_plots, "notification_sent": True},
@@ -71,9 +71,12 @@ def initialize_player(user_id):
         "last_daily_claim": None,
         "level": 1,
         "xp": 0,
-        "achievements": {"unlocked": [], "progress": {}}
+        "achievements": {"unlocked": [], "progress": {}},
+        "machines": {
+                "seed_maker": []
+        }
     }
-    
+    GAME_DATA[user_id_str] = new_player_data
     # Lưu người chơi mới này lên DB ngay lập tức
     player_collection.update_one(
         {'_id': user_id_str},

@@ -110,6 +110,8 @@ def _migrate_player_data_from_json(user_id_str, player_data):
         if is_old_format:
             print(f"Nâng cấp dữ liệu inventory cho người chơi {user_id_str}...")
             player_data['inventory'] = new_inventory
+
+    
     return player_data
 
 
