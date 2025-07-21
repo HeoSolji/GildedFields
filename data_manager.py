@@ -74,6 +74,12 @@ def initialize_player(user_id):
         "achievements": {"unlocked": [], "progress": {}},
         "machines": {
                 "seed_maker": []
+        },
+        "quests": {
+            "daily": [],
+            "special": None, # Chỉ có 1 nhiệm vụ đặc biệt tại một thời điểm
+            "last_updated": 0, # Timestamp để biết khi nào cần reset
+            "reputation": {"johnson": 0, "barry": 0}
         }
     }
     GAME_DATA[user_id_str] = new_player_data
