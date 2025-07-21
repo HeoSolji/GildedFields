@@ -4,8 +4,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import random, asyncio
-import data_manager, config, utils
-
+import data_manager, config, utils, quest_manager
 class FishView(discord.ui.View):
     def __init__(self, author):
         super().__init__(timeout=3.0) # Người chơi có 3 giây để phản ứng
@@ -51,6 +50,8 @@ class FishView(discord.ui.View):
         
         user_data['inventory'].setdefault(inventory_key, {})[quality_str] = user_data['inventory'].setdefault(inventory_key, {}).get(quality_str, 0) + 1
         data_manager.save_player_data()
+
+        await quest_manager.update_quest_progress(interaction, "action_fish", amount=1)
         
         star_emoji = config.STAR_EMOJIS.get(quality, "")
         

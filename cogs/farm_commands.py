@@ -13,6 +13,7 @@ import achievement_manager
 from utils import determine_quality
 import math
 import asyncio
+import quest_manager
 
 # --- CLASS VIEW ĐỂ CHỨA NÚT BẤM (Giữ nguyên) ---
 class FarmView(discord.ui.View):
@@ -505,6 +506,8 @@ class Farm(commands.Cog):
             else:
                  await interaction.followup.send("Đã dọn dẹp một số cây trồng không hợp lệ khỏi nông trại.")
 
+            total_harvested_amount = sum(q for qualities in harvested_items.values() for q in qualities.values())
+            await quest_manager.update_quest_progress(interaction, "action_harvest", amount=total_harvested_amount)
             if total_xp_gained > 0:
                 user_data['xp'] = user_data.get('xp', 0) + total_xp_gained
                 await interaction.followup.send(f"Bạn nhận được **{total_xp_gained} XP**!")

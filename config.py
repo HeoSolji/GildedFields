@@ -324,6 +324,35 @@ SEED_MAKER_CONFIG = {
     # 1% còn lại sẽ là cơ hội ra hạt hiếm
 }
 
+# --- THÊM CẤU HÌNH MỚI CHO HỆ THỐNG NHIỆM VỤ ---
+
+QUEST_CONFIG = {
+    "daily_quest_count": 2,       # Số nhiệm vụ hàng ngày mỗi người chơi nhận được
+    "special_bounty_chance": 0.25 # 25% cơ hội xuất hiện nhiệm vụ đặc biệt mỗi ngày
+}
+
+# Định nghĩa các NPC
+QUEST_NPCS = {
+    "johnson": {"name": "Lão nông Johnson", "emoji": "🧑‍🌾"},
+    "barry": {"name": "Thuyền trưởng Barry", "emoji": "🎣"}
+}
+
+# Kho nhiệm vụ (Quest Pool)
+QUEST_POOL = {
+    "daily": [
+        {"id": "d_collect_carrot", "npc": "johnson", "type": "collect", "target_id": "harvest_carrot", "target_amount": 15, "title": "Món hầm cho bữa tối", "objective": "Mang cho tôi **{amount}** {emoji} **{name}**.", "reward": {"money": 200, "xp": 50, "rep": 10}},
+        {"id": "d_collect_wheat", "npc": "johnson", "type": "collect", "target_id": "harvest_wheat", "target_amount": 20, "title": "Nghiền bột làm bánh", "objective": "Tôi cần **{amount}** {emoji} **{name}** để chuẩn bị cho mẻ bánh mới.", "reward": {"money": 150, "xp": 40, "rep": 10}},
+        {"id": "d_collect_egg", "npc": "johnson", "type": "collect", "target_id": "product_egg", "target_amount": 5, "title": "Bữa sáng thịnh soạn", "objective": "Hãy tìm giúp tôi **{amount}** {emoji} **{name}** chất lượng nhé.", "reward": {"money": 250, "xp": 60, "rep": 15}},
+        {"id": "d_fish_carp", "npc": "barry", "type": "collect", "target_id": "fish_carp", "target_amount": 3, "title": "Mồi câu hảo hạng", "objective": "Các loài cá lớn rất thích ăn **{name}**, hãy câu **{amount}** con {emoji} **{name}** giúp tôi để làm mồi câu.", "reward": {"money": 300, "xp": 70, "rep": 15}},
+        {"id": "d_action_harvest", "npc": "johnson", "type": "action_harvest", "target_amount": 20, "title": "Giúp một tay việc đồng áng", "objective": "Lưng tôi đau quá, cậu thu hoạch giúp tôi **{amount}** cây trồng bất kỳ được không?", "reward": {"money": 100, "xp": 100, "rep": 5}},
+        {"id": "d_action_fish", "npc": "barry", "type": "action_fish", "target_amount": 10, "title": "Một ngày đi câu", "objective": "Hôm nay biển lặng, hãy thử tài câu **{amount}** con cá xem sao!", "reward": {"money": 150, "xp": 120, "rep": 10}},
+    ],
+    "special": [
+        {"id": "s_collect_corn_large", "npc": "johnson", "type": "collect", "target_id": "harvest_corn", "target_amount": 100, "title": "Đơn hàng lớn cho lễ hội", "duration_days": 3, "objective": "Lễ hội sắp đến rồi! Hãy giúp tôi thu thập **{amount}** {emoji} **{name}**.", "reward": {"money": 5000, "xp": 1000, "rep": 50}},
+        {"id": "s_collect_cheese_gold", "npc": "johnson", "type": "collect_quality", "target_id": "crafted_cheese", "target_quality": 2, "target_amount": 10, "title": "Đặc sản cho nhà hàng", "duration_days": 3, "objective": "Một nhà hàng 5 sao muốn đặt **{amount}** {emoji} **{name}** chất lượng Vàng 🌟.", "reward": {"money": 7500, "xp": 1500, "rep": 75}},
+        {"id": "s_fish_catfish", "npc": "barry", "type": "collect", "target_id": "fish_catfish", "target_amount": 5, "title": "Treo thưởng Cá Trê", "duration_days": 3, "objective": "Tôi nghe đồn có một con {emoji} **{name}** rất lớn ở hồ. Cậu câu giúp tôi **{amount}** con được không?", "reward": {"money": 6000, "xp": 1200, "rep": 60}},
+    ]
+}
 
 def get_grow_time_string(seconds):
     """Chuyển đổi giây sang chuỗi 'x phút y giây'."""
