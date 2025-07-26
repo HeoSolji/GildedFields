@@ -39,8 +39,11 @@ CROP_EMOJIS = {
     "watermelon": "🍉", "onion": "🧅", "parsnip": "🥕", "cauliflower": "🥦",
     "kale": "🥬", "hot_pepper": "🌶️", "radish": "🥕", "pumpkin": "🎃",
     "bok_choy": "🥬", "yam": "🍠", "cranberries": "🍒",
-    "ancient_fruit": "<:ancient_fruit:1395939543353655377>",
-    "starfruit": "<:starfruit:1395940722246680617>"  
+    "ancient_fruit": "<:ancient_fruit:1398639919869722786>",
+    "starfruit": "<:starfruit:1398639835711017012>",
+    "crystal_fruit": "<:crystal_fruit:1398648944417968208>",
+    "snowdrop": "<:snowdrop:1398648968275038249>",
+    "winter_root": "<:winter_root:1398648919856123964>",
 }
 
 # Tỉ lệ ra cấp sao (cơ hội để đạt được cấp đó HOẶC CAO HƠN)
@@ -64,7 +67,7 @@ STAR_QUALITY_MULTIPLIER = {
 # Ra khơi config
 EXPLORATION_CONFIG = {
     "cost": 1000, # Chi phí cho mỗi chuyến đi
-    "cooldown": 1800, # Thời gian chờ (12 giờ)
+    "cooldown": 600, # Thời gian chờ (12 giờ)
     "rewards": {
         "nothing_chance": 0.69, # 50% không tìm thấy gì
         "money_chance": 0.3,   # 30% tìm thấy tiền
@@ -89,33 +92,38 @@ SEEDLING_EMOJI = "🌱" # Giai đoạn mầm
 SAPLING_EMOJI = "🌿"  # Giai đoạn cây non
 # --- DỮ LIỆU CÂY TRỒNG ---
 CROPS = {
-    # Cây cũ đã được gán mùa
-    "wheat": {"grow_time": 180, "sell_price": 10, "seed_price": 5, "display_name": "Lúa mì", "emoji": CROP_EMOJIS["wheat"], "seasons": ["spring", "summer", "fall", "winter"]},
-    "carrot": {"grow_time": 300, "sell_price": 25, "seed_price": 10, "display_name": "Cà rốt", "emoji": CROP_EMOJIS["carrot"], "seasons": ["spring"]},
-    "potato": {"grow_time": 1800, "sell_price": 80, "seed_price": 30, "display_name": "Khoai tây", "emoji": CROP_EMOJIS["potato"], "seasons": ["spring"]},
-    "onion": {"grow_time": 750, "sell_price": 30, "seed_price": 12, "display_name": "Hành tây", "emoji": CROP_EMOJIS["onion"], "seasons": ["summer"]},
-    "corn": {"grow_time": 1200, "sell_price": 50, "seed_price": 20, "display_name": "Ngô", "emoji": CROP_EMOJIS["corn"], "seasons": ["summer", "fall"]},
-    "eggplant": {"grow_time": 2400, "sell_price": 110, "seed_price": 40, "display_name": "Cà tím", "emoji": CROP_EMOJIS["eggplant"], "seasons": ["fall"]},
-    "broccoli": {"grow_time": 2100, "sell_price": 95, "seed_price": 35, "display_name": "Bông cải xanh", "emoji": CROP_EMOJIS["broccoli"], "seasons": ["fall"]},
+    # Mùa Xuân
+    "wheat": {"grow_time": 120, "sell_price": 10, "seed_price": 5, "display_name": "Lúa mì", "emoji": CROP_EMOJIS["wheat"], "seasons": ["spring", "summer", "fall", "winter"]}, # 2 phút
+    "parsnip": {"grow_time": 240, "sell_price": 18, "seed_price": 8, "display_name": "Củ cải vàng", "emoji": CROP_EMOJIS["parsnip"], "seasons": ["spring"]}, # 4 phút
+    "carrot": {"grow_time": 480, "sell_price": 25, "seed_price": 10, "display_name": "Cà rốt", "emoji": CROP_EMOJIS["carrot"], "seasons": ["spring"]}, # 8 phút
+    "kale": {"grow_time": 600, "sell_price": 55, "seed_price": 25, "display_name": "Cải xoăn", "emoji": CROP_EMOJIS["kale"], "seasons": ["spring"]}, # 10 phút
+    "potato": {"grow_time": 900, "sell_price": 80, "seed_price": 30, "display_name": "Khoai tây", "emoji": CROP_EMOJIS["potato"], "seasons": ["spring"]}, # 15 phút
+    "cauliflower": {"grow_time": 1500, "sell_price": 90, "seed_price": 40, "display_name": "Súp lơ trắng", "emoji": CROP_EMOJIS["cauliflower"], "seasons": ["spring"]}, # 25 phút
+    "strawberry": {"grow_time": 1800, "sell_price": 60, "seed_price": 50, "display_name": "Dâu tây", "emoji": CROP_EMOJIS["strawberry"], "seasons": ["spring"]}, # 30 phút
 
-    # Cây mới theo mùa
-    "parsnip": {"grow_time": 400, "sell_price": 18, "seed_price": 8, "display_name": "Củ cải vàng", "emoji": CROP_EMOJIS["parsnip"], "seasons": ["spring"]},
-    "cauliflower": {"grow_time": 1000, "sell_price": 90, "seed_price": 40, "display_name": "Súp lơ trắng", "emoji": CROP_EMOJIS["cauliflower"], "seasons": ["spring"]},
-    "kale": {"grow_time": 600, "sell_price": 55, "seed_price": 25, "display_name": "Cải xoăn", "emoji": CROP_EMOJIS["kale"], "seasons": ["spring"]},
-    "strawberry": {"grow_time": 900, "sell_price": 60, "seed_price": 50, "display_name": "Dâu tây", "emoji": CROP_EMOJIS["strawberry"], "seasons": ["spring"]},
-    
-    "tomato": {"grow_time": 1500, "sell_price": 30, "seed_price": 25, "display_name": "Cà chua", "emoji": CROP_EMOJIS["tomato"], "seasons": ["summer"]},
-    "hot_pepper": {"grow_time": 500, "sell_price": 20, "seed_price": 10, "display_name": "Ớt cay", "emoji": CROP_EMOJIS["hot_pepper"], "seasons": ["summer"]},
-    "radish": {"grow_time": 700, "sell_price": 45, "seed_price": 20, "display_name": "Củ cải đỏ", "emoji": CROP_EMOJIS["radish"], "seasons": ["summer"]},
-    "watermelon": {"grow_time": 3600, "sell_price": 180, "seed_price": 60, "display_name": "Dưa hấu", "emoji": CROP_EMOJIS["watermelon"], "seasons": ["summer"]},
-    
-    "pumpkin": {"grow_time": 2800, "sell_price": 160, "seed_price": 50, "display_name": "Bí ngô", "emoji": CROP_EMOJIS["pumpkin"], "seasons": ["fall"]},
-    "yam": {"grow_time": 1300, "sell_price": 80, "seed_price": 30, "display_name": "Khoai lang", "emoji": CROP_EMOJIS["yam"], "seasons": ["fall"]},
-    "cranberries": {"grow_time": 700, "sell_price": 40, "seed_price": 60, "display_name": "Nam việt quất", "emoji": CROP_EMOJIS["cranberries"], "seasons": ["fall"]},
+    # Mùa Hạ
+    "hot_pepper": {"grow_time": 300, "sell_price": 20, "seed_price": 10, "display_name": "Ớt cay", "emoji": CROP_EMOJIS["hot_pepper"], "seasons": ["summer"]}, # 5 phút
+    "onion": {"grow_time": 600, "sell_price": 30, "seed_price": 12, "display_name": "Hành tây", "emoji": CROP_EMOJIS["onion"], "seasons": ["summer"]}, # 10 phút
+    "radish": {"grow_time": 900, "sell_price": 45, "seed_price": 20, "display_name": "Củ cải đỏ", "emoji": CROP_EMOJIS["radish"], "seasons": ["summer"]}, # 15 phút
+    "tomato": {"grow_time": 1200, "sell_price": 30, "seed_price": 25, "display_name": "Cà chua", "emoji": CROP_EMOJIS["tomato"], "seasons": ["summer"]}, # 20 phút
+    "corn": {"grow_time": 1500, "sell_price": 50, "seed_price": 20, "display_name": "Ngô", "emoji": CROP_EMOJIS["corn"], "seasons": ["summer", "fall"]}, # 25 phút
+    "watermelon": {"grow_time": 1800, "sell_price": 180, "seed_price": 60, "display_name": "Dưa hấu", "emoji": CROP_EMOJIS["watermelon"], "seasons": ["summer"]}, # 30 phút
 
-    # cây ngoài biển
-    "ancient_fruit": {"grow_time": 2419200, "sell_price": 15000, "seed_price": 0, "display_name": "Quả Cổ Đại", "emoji": CROP_EMOJIS["ancient_fruit"], "seasons": ["spring", "summer", "fall"]},
-    "starfruit": {"grow_time": 1123200, "sell_price": 5000, "seed_price": 0, "display_name": "Khế", "emoji": CROP_EMOJIS["starfruit"], "seasons": ["summer"]},
+    # Mùa Thu
+    "cranberries": {"grow_time": 420, "sell_price": 40, "seed_price": 60, "display_name": "Nam việt quất", "emoji": CROP_EMOJIS["cranberries"], "seasons": ["fall"]}, # 7 phút
+    "yam": {"grow_time": 900, "sell_price": 80, "seed_price": 30, "display_name": "Khoai lang", "emoji": CROP_EMOJIS["yam"], "seasons": ["fall"]}, # 15 phút
+    "broccoli": {"grow_time": 1200, "sell_price": 95, "seed_price": 35, "display_name": "Bông cải xanh", "emoji": CROP_EMOJIS["broccoli"], "seasons": ["fall"]}, # 20 phút
+    "eggplant": {"grow_time": 1500, "sell_price": 110, "seed_price": 40, "display_name": "Cà tím", "emoji": CROP_EMOJIS["eggplant"], "seasons": ["fall"]}, # 25 phút
+    "pumpkin": {"grow_time": 1800, "sell_price": 160, "seed_price": 50, "display_name": "Bí ngô", "emoji": CROP_EMOJIS["pumpkin"], "seasons": ["fall"]}, # 30 phút
+
+    # Mùa Đông
+    "snowdrop": {"grow_time": 600, "sell_price": 35, "seed_price": 15, "display_name": "Hoa Tuyết", "emoji": CROP_EMOJIS["snowdrop"], "seasons": ["winter"]}, # 10 phút
+    "winter_root": {"grow_time": 900, "sell_price": 60, "seed_price": 25, "display_name": "Củ Mùa Đông", "emoji": CROP_EMOJIS["winter_root"], "seasons": ["winter"]}, # 15 phút
+    "crystal_fruit": {"grow_time": 1800, "sell_price": 70, "seed_price": 30, "display_name": "Quả Pha Lê", "emoji": CROP_EMOJIS["crystal_fruit"], "seasons": ["winter"]}, # 30 phút
+
+    # Cây đặc biệt (trên 30 phút)
+    "starfruit": {"grow_time": 28800, "sell_price": 5000, "seed_price": 0, "display_name": "Quả Khế", "emoji": CROP_EMOJIS["starfruit"], "seasons": ["summer"]}, # 8 giờ
+    "ancient_fruit": {"grow_time": 86400, "sell_price": 10000, "seed_price": 0, "display_name": "Quả Cổ Đại", "emoji": CROP_EMOJIS["ancient_fruit"], "seasons": ["spring", "summer", "fall"]}, # 24 giờ
 }
 
 # --- CẤU HÌNH CÂY KHỔNG LỒ ---
@@ -125,12 +133,12 @@ GIANT_CROP_YIELD_MULTIPLIER = 9 # Sản lượng nhận được
 
 # --- DỮ LIỆU VẬT NUÔI ---
 ANIMALS = {
-    "chicken": {"display_name": "Gà", "emoji": "🐔", "buy_price": 200, "product_id": "egg", "production_time": 3600, "seasons": ["spring", "summer", "fall"]},
-    "duck": {"display_name": "Vịt", "emoji": "🦆", "buy_price": 600, "product_id": "duck_egg", "production_time": 7200, "seasons": ["spring", "summer", "fall"]},
-    "cow": {"display_name": "Bò", "emoji": "🐮", "buy_price": 1000, "product_id": "milk", "production_time": 60, "seasons": ["spring", "summer", "fall", "winter"]},
-    "goat": {"display_name": "Dê", "emoji": "🐐", "buy_price": 2000, "product_id": "goat_milk", "production_time": 28800, "seasons": ["spring", "summer", "fall", "winter"]},
-    "sheep": {"display_name": "Cừu", "emoji": "🐑", "buy_price": 2500, "product_id": "wool", "production_time": 43200, "seasons": ["spring", "summer", "fall"]},
-    "pig": {"display_name": "Heo", "emoji": "🐷", "buy_price": 5000, "product_id": "truffle", "production_time": 86400, "seasons": ["spring", "summer", "fall"]},
+    "chicken": {"display_name": "Gà", "emoji": "🐔", "buy_price": 200, "product_id": "egg", "production_time": 900, "seasons": ["spring", "summer", "fall", "winter"]},       # 15 phút
+    "duck": {"display_name": "Vịt", "emoji": "🦆", "buy_price": 600, "product_id": "duck_egg", "production_time": 1200, "seasons": ["spring", "summer", "fall", "winter"]},    # 20 phút
+    "sheep": {"display_name": "Cừu", "emoji": "🐑", "buy_price": 2500, "product_id": "wool", "production_time": 1500, "seasons": ["spring", "summer", "fall", "winter"]},   # 25 phút
+    "goat": {"display_name": "Dê", "emoji": "🐐", "buy_price": 2000, "product_id": "goat_milk", "production_time": 1800, "seasons": ["spring", "summer", "fall", "winter"]}, # 30 phút
+    "cow": {"display_name": "Bò", "emoji": "🐮", "buy_price": 1000, "product_id": "milk", "production_time": 1800, "seasons": ["spring", "summer", "fall", "winter"]},    # 30 phút
+    "pig": {"display_name": "Heo", "emoji": "🐷", "buy_price": 5000, "product_id": "truffle", "production_time": 1800, "seasons": ["spring", "summer", "fall","winter"]},   # 30 phút
 }
 
 # --- DỮ LIỆU SẢN PHẨM ---
@@ -148,7 +156,8 @@ XP_PER_CROP = {
     "wheat": 5, "corn": 20, "parsnip": 8, "cauliflower": 35, "kale": 12, "strawberry": 18,
     "tomato": 15, "hot_pepper": 8, "radish": 20, "watermelon": 80, "pumpkin": 65,
     "yam": 30, "cranberries": 15, "carrot": 10, "potato": 35, "onion": 15,
-    "eggplant": 50, "broccoli": 45
+    "eggplant": 50, "broccoli": 45, "snowdrop": 15, "winter_root": 25,
+    "crystal_fruit": 30,
 }
 
 # --- DỮ LIỆU CÔNG THỨC ---
