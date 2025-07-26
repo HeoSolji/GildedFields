@@ -1,33 +1,48 @@
 # bot.py
 
+# Bước 1: Nạp biến môi trường LÊN ĐẦU TIÊN
+from dotenv import load_dotenv
+load_dotenv()
+
+# Bước 2: Import các thư viện và module cần thiết
 import discord
 from discord.ext import commands, tasks
-import os
-import json
-import asyncio
-import random
-import time
-from dotenv import load_dotenv
+import os, asyncio, random, time, traceback
+from keep_alive import keep_alive
+import data_manager, market_manager, config, utils, quest_manager
 
-# Các module quản lý của chúng ta
-import data_manager
-import market_manager
-from keep_alive import keep_alive # Dành cho Replit
-import config
-
-# --- Tải TOKEN từ file .env ---
-load_dotenv() 
+# --- Tải TOKEN ---
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
-# print("TOKEN nhận được:", repr(TOKEN))
 if not TOKEN:
-    print("Lỗi: Không tìm thấy DISCORD_BOT_TOKEN trong file .env hoặc biến môi trường.")
+    print("Lỗi: Không tìm thấy DISCORD_BOT_TOKEN trong file .env")
     exit()
 
-# --- Khởi tạo Bot ---
-intents = discord.Intents.default()
-intents.message_content = True
-bot = commands.Bot(command_prefix='!', intents=intents)
+# --- Định nghĩa Class Bot chính ---
+intents = discord.Intents.all()
 
+class MyBot(commands.Bot):
+    def __init__(self):
+        super().__init__(command_prefix='!', intents=intents)
+
+    async def setup_hook(self):
+        """Hàm này được tự động gọi một lần khi bot chuẩn bị khởi động."""
+        print("--- Đang tải các Cogs... ---")
+        for filename in os.listdir('./cogs'):
+            if filename.endswith('.py'):
+                try:
+                    await self.load_extension(f'cogs.{filename[:-3]}')
+                    print(f'  -> Đã tải thành công: {filename}')
+                except Exception as e:
+                    print(f'  -> Lỗi khi tải {filename}: {e}')
+        
+        print("\n--- Đang đồng bộ lệnh... ---")
+        try:
+            synced = await self.tree.sync()
+            print(f"  -> Đã đồng bộ {len(synced)} lệnh / thành công.")
+        except Exception as e:
+            print(f"  -> Lỗi khi đồng bộ lệnh: {e}")
+
+bot = MyBot()
 
 # --- CÁC TÁC VỤ NỀN (BACKGROUND TASKS) ---
 
@@ -40,76 +55,69 @@ async def auto_save_data():
 
 @tasks.loop(seconds=30)
 async def check_harvest_notifications():
-    """Kiểm tra và gửi thông báo thu hoạch, đồng thời kiểm tra tỉ lệ cây khổng lồ."""
-    # Chờ cho đến khi bot sẵn sàng và đã tải dữ liệu
     await bot.wait_until_ready()
-    
     current_time = time.time()
-    # Tạo một bản copy của các key để tránh lỗi khi dict thay đổi trong lúc lặp
     player_ids = list(data_manager.GAME_DATA.keys())
 
-    # print("--- [BACKGROUND TASK] Running notification check... ---") # Có thể bật dòng này để debug
-
     for user_id in player_ids:
-        # Bọc logic của mỗi người dùng trong try-except để lỗi của 1 người không làm hỏng cả tác vụ
         try:
             user_data = data_manager.get_player_data(user_id)
             if not user_data: continue
 
+            # --- KIỂM TRA NÔNG TRẠI (FARM) ---
             farm_data = user_data.get('farm', {})
-            plots = farm_data.get('plots', {})
-            
-            # Nếu cờ thông báo đã được gửi, không cần kiểm tra gì thêm cho người này
-            if farm_data.get('notification_sent', True):
-                continue
-
-            all_plots_ready = True
-            has_planted_crops = False
-
-            for plot_data in plots.values():
-                if not plot_data: continue
+            if not farm_data.get('notification_sent', True):
+                print(f"\n[NOTIF DEBUG] Checking FARM for user: {user_id}")
+                plots = farm_data.get('plots', {})
+                has_planted_crops, all_plots_ready = False, True
                 
-                has_planted_crops = True
+                for plot_data in plots.values():
+                    if plot_data and "crop" in plot_data:
+                        has_planted_crops = True
+                        if current_time < plot_data.get('ready_time', float('inf')):
+                            all_plots_ready = False
+                            break
                 
-                # Nếu có ít nhất 1 cây chưa chín, thì chưa thể có thông báo "tất cả đã sẵn sàng"
-                if current_time < plot_data.get('ready_time', float('inf')):
-                    all_plots_ready = False
-                    continue # Bỏ qua cây này và đi đến cây tiếp theo
+                print(f"[NOTIF DEBUG]  -> Has planted: {has_planted_crops}")
+                print(f"[NOTIF DEBUG]  -> All plots ready: {all_plots_ready}")
+
+                if has_planted_crops and all_plots_ready:
+                    print(f"[NOTIF DEBUG]  --> Sending FARM notification to {user_id}")
+                    try:
+                        user = await bot.fetch_user(int(user_id))
+                        await user.send("🔔 **Thông báo Farm:** Tất cả cây trồng đã sẵn sàng để thu hoạch! Dùng lệnh `/harvest`.")
+                        farm_data['notification_sent'] = True
+                    except Exception as e:
+                        print(f"[ERROR] Không thể gửi tin nhắn farm cho {user_id}: {e}")
+                        farm_data['notification_sent'] = True
+
+            # --- KIỂM TRA CHUỒNG NUÔI (BARN) ---
+            barn_data = user_data.get('barn', {})
+            if not barn_data.get('notification_sent', True):
+                print(f"\n[NOTIF DEBUG] Checking BARN for user: {user_id}")
+                animals_in_barn = barn_data.get('animals', {})
+                is_any_animal_ready = False
+                if animals_in_barn:
+                    for ready_times in animals_in_barn.values():
+                        if any(current_time >= rt for rt in ready_times):
+                            is_any_animal_ready = True
+                            break
                 
-                # Nếu cây đã chín nhưng chưa được kiểm tra tỉ lệ khổng lồ
-                if not plot_data.get('is_giant') and not plot_data.get('checked_for_giant'):
-                    plot_data['checked_for_giant'] = True # Đánh dấu đã kiểm tra để không lặp lại
-                    
-                    crop_id = plot_data.get('crop')
-                    # Thử vận may
-                    if crop_id and crop_id in config.GIANT_CROP_CANDIDATES and random.random() < config.GIANT_CROP_CHANCE:
-                        plot_data['is_giant'] = True
-                        try:
-                            user = await bot.fetch_user(int(user_id))
-                            crop_info = config.CROPS[crop_id]
-                            await user.send(f"🌟 Chúc mừng! Một cây **{crop_info['display_name']}** trong nông trại của bạn đã phát triển thành cây **KHỔNG LỒ**! Dùng `/harvest` để thu hoạch nó nhé.")
-                            print(f"Đã tạo cây khổng lồ {crop_id} cho {user.name}")
-                        except Exception as e:
-                            print(f"Lỗi khi gửi DM cây khổng lồ cho {user_id}: {e}")
+                print(f"[NOTIF DEBUG]  -> Any animal ready: {is_any_animal_ready}")
 
-            # Gửi thông báo thu hoạch chung nếu tất cả cây đã chín và chưa gửi thông báo
-            if has_planted_crops and all_plots_ready and not farm_data.get('notification_sent', True):
-                try:
-                    user = await bot.fetch_user(int(user_id))
-                    await user.send("🔔 **Thông báo:** Tất cả cây trồng trong nông trại của bạn đã sẵn sàng để thu hoạch! Dùng lệnh `/harvest` ngay nhé.")
-                    farm_data['notification_sent'] = True
-                    print(f"[SUCCESS] Đã gửi thông báo thu hoạch cho {user.name} ({user_id})")
-                except Exception as e:
-                    print(f"[ERROR] Không thể gửi tin nhắn thu hoạch cho người dùng {user_id}: {e}")
-                    # Vẫn set để không spam lỗi
-                    farm_data['notification_sent'] = True
-
+                if is_any_animal_ready:
+                    print(f"[NOTIF DEBUG]  --> Sending BARN notification to {user_id}")
+                    try:
+                        user = await bot.fetch_user(int(user_id))
+                        await user.send("🐄 **Thông báo Barn:** Bạn có sản phẩm trong chuồng đã sẵn sàng để thu hoạch! Dùng lệnh `/machine collect`.")
+                        barn_data['notification_sent'] = True
+                    except Exception as e:
+                        print(f"[ERROR] Không thể gửi tin nhắn barn cho {user_id}: {e}")
+                        barn_data['notification_sent'] = True
         except Exception as e:
-            # Nếu có bất kỳ lỗi nào xảy ra với dữ liệu của người chơi này, in ra và tiếp tục với người chơi khác
-            print(f"!!! [CRITICAL TASK ERROR] !!! Lỗi khi xử lý người dùng {user_id}: {e}")
+            print(f"!!! [CRITICAL TASK ERROR] !!! Lỗi khi xử lý thông báo cho người dùng {user_id}: {e}")
             import traceback
             traceback.print_exc()
-
 
 @tasks.loop(hours=24)
 async def update_market():
@@ -127,108 +135,82 @@ async def update_market():
 
 @tasks.loop(minutes=1)
 async def check_companion_planting():
+    """Kiểm tra và áp dụng hiệu ứng xen canh."""
     await bot.wait_until_ready()
     
-    player_ids = list(data_manager.GAME_DATA.keys())
-
-    for user_id in player_ids:
-        user_data = data_manager.get_player_data(user_id)
-        if not user_data: continue
-        
-        farm_data = user_data.get('farm', {})
-        plots = farm_data.get('plots', {})
-        farm_size = farm_data.get('size', 0)
-
-        # 1. Thu thập thông tin các hàng cây
-        rows_info = {}
-        for r in range(farm_size):
-            row_crop_id = None
-            is_uniform = True
-            for c in range(farm_size):
-                plot_data = plots.get(f"{r}_{c}")
-                if not plot_data or "crop" not in plot_data:
-                    is_uniform = False; break
+    for user_id, user_data in data_manager.GAME_DATA.items():
+        try:
+            farm_data = user_data.get('farm', {})
+            plots = farm_data.get('plots', {})
+            farm_size = farm_data.get('size', 0)
+            
+            # 1. Thu thập thông tin các hàng cây đồng nhất
+            rows_info = {}
+            for r in range(farm_size):
+                row_crop_id = None
+                is_uniform = True
+                # Kiểm tra xem cả hàng có trồng cùng 1 loại cây không
+                for c in range(farm_size):
+                    plot_data = plots.get(f"{r}_{c}")
+                    if not plot_data or "crop" not in plot_data:
+                        is_uniform = False; break
+                    if row_crop_id is None: row_crop_id = plot_data['crop']
+                    elif row_crop_id != plot_data['crop']: is_uniform = False; break
                 
-                if row_crop_id is None:
-                    row_crop_id = plot_data['crop']
-                elif row_crop_id != plot_data['crop']:
-                    is_uniform = False; break
+                # SỬA LỖI: Dòng này phải nằm ngoài vòng lặp 'c'
+                if is_uniform and row_crop_id:
+                    rows_info[r] = row_crop_id
             
-            if is_uniform and row_crop_id:
-                rows_info[r] = row_crop_id
-
-        # 2. Kiểm tra và áp dụng bonus
-        for r, crop_id in rows_info.items():
-            bonus = 0
-            has_companion_neighbor = False
-
-            # --- LOGIC KIỂM TRA HAI CHIỀU ---
-            # Chiều 1: Kiểm tra xem cây hiện tại có "partner" không
-            companion_info = config.COMPANION_PLANTS.get(crop_id)
-            if companion_info and (rows_info.get(r - 1) == companion_info['partner'] or rows_info.get(r + 1) == companion_info['partner']):
-                has_companion_neighbor = True
-                bonus = companion_info['bonus']
-            
-            # Chiều 2: Kiểm tra xem cây hiện tại có PHẢI LÀ "partner" của hàng xóm không
-            else:
-                for key, value in config.COMPANION_PLANTS.items():
-                    if value['partner'] == crop_id: # Nếu cây này là partner của một cây khác
-                        if rows_info.get(r - 1) == key or rows_info.get(r + 1) == key:
-                            has_companion_neighbor = True
-                            bonus = value['bonus']
-                            break
-            # ------------------------------------
-
-            # Áp dụng bonus cho tất cả cây trong hàng
-            for c in range(farm_size):
-                plot_key = f"{r}_{c}"
-                plot_data = plots.get(plot_key)
-                if plot_data:
-                    original_grow_time = config.CROPS[crop_id]['grow_time']
+            # 2. Kiểm tra và áp dụng bonus
+            for r, crop_id in rows_info.items():
+                bonus, has_companion = 0, False
+                
+                # Logic kiểm tra hai chiều
+                companion_info = config.COMPANION_PLANTS.get(crop_id)
+                if companion_info and (rows_info.get(r - 1) == companion_info['partner'] or rows_info.get(r + 1) == companion_info['partner']):
+                    has_companion = True; bonus = companion_info['bonus']
+                else:
+                    for key, value in config.COMPANION_PLANTS.items():
+                        if value['partner'] == crop_id and (rows_info.get(r - 1) == key or rows_info.get(r + 1) == key):
+                            has_companion = True; bonus = value['bonus']; break
+                
+                # Áp dụng hoặc hủy bonus cho cả hàng
+                for c in range(farm_size):
+                    plot_data = plots.get(f"{r}_{c}")
+                    if not plot_data: continue
                     
-                    if has_companion_neighbor and not plot_data.get('companion_bonus_applied'):
-                        new_grow_time = original_grow_time * (1 - bonus)
-                        time_saved = original_grow_time - new_grow_time
+                    original_grow_time = config.CROPS[crop_id]['grow_time']
+                    if has_companion and not plot_data.get('companion_bonus_applied'):
+                        time_saved = original_grow_time * bonus
                         plot_data['ready_time'] -= time_saved
                         plot_data['companion_bonus_applied'] = True
-                    
-                    elif not has_companion_neighbor and plot_data.get('companion_bonus_applied'):
+                    elif not has_companion and plot_data.get('companion_bonus_applied'):
                         time_added = original_grow_time * bonus
                         plot_data['ready_time'] += time_added
                         plot_data['companion_bonus_applied'] = False
+        except Exception as e:
+            print(f"Lỗi trong tác vụ xen canh cho user {user_id}: {e}")
 
-# --- SỰ KIỆN CỦA BOT ---
+# --- SỰ KIỆN ON_READY ---
 @bot.event
 async def on_ready():
-    """Sự kiện được kích hoạt khi bot sẵn sàng và đã tải xong mọi thứ."""
-    print(f'Bot đã đăng nhập với tên: {bot.user}')
-    print('------')
+    print(f'\nBot đã đăng nhập với tên: {bot.user}')
+    print('-------------------')
     data_manager.load_player_data()
     
-    # BẮT ĐẦU TẤT CẢ CÁC VÒNG LẶP TÁC VỤ NỀN
+    # Bắt đầu các vòng lặp tác vụ nền
     auto_save_data.start()
-    check_companion_planting.start()
     check_harvest_notifications.start()
     update_market.start()
-    # check_giant_crops.start() # Tạm thời tắt vì đã gộp logic
+    check_companion_planting.start()
 
-# --- HÀM MAIN VÀ KHỐI CHẠY CHÍNH ---
+# --- KHỐI CHẠY CHÍNH ---
 async def main():
-    """Hàm chính để tải các Cogs và khởi động bot."""
+    keep_alive()
     async with bot:
-        for filename in os.listdir('./cogs'):
-            if filename.endswith('.py'):
-                try:
-                    await bot.load_extension(f'cogs.{filename[:-3]}')
-                    print(f'Đã tải thành công: {filename}')
-                except Exception as e:
-                    print(f'Lỗi khi tải {filename}: {e}')
         await bot.start(TOKEN)
 
 if __name__ == "__main__":
-    # Dành cho Replit hosting
-    keep_alive() 
-    
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
