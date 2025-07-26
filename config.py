@@ -303,7 +303,7 @@ PRICE_MODIFIERS = {
 
 # Dữ liệu các loại cá
 # { "tên_hệ_thống": { "tên_hiển_thị": ..., "emoji": ..., "giá_bán": ..., "độ_hiếm": ... } }
-FISHING_COOLDOWN = 5 # Thời gian chờ giữa mỗi lần câu (giây)
+FISHING_COOLDOWN = 30 # Thời gian chờ giữa mỗi lần câu (giây)
 
 FISH = {
     "carp": {"display_name": "Cá Chép", "emoji": "🐟", "sell_price": 30, "rarity": 0.5},
