@@ -10,7 +10,7 @@ import config
 import season_manager
 import random
 import achievement_manager
-# from utils import determine_quality
+from utils import determine_quality
 import math
 import asyncio
 import quest_manager
