@@ -227,7 +227,7 @@ async def main():
 
 if __name__ == "__main__":
     # Dành cho Replit hosting
-    # keep_alive() 
+    keep_alive() 
     
     try:
         asyncio.run(main())
