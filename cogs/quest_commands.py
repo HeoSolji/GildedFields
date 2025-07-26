@@ -190,7 +190,6 @@ class QuestCommands(commands.Cog):
             quest_to_complete = all_active_quests[index]
             quest_id = quest_to_complete.get('id')
             
-            # Tìm lại template của quest trong config để lấy thông tin đầy đủ
             quest_pool = config.QUEST_POOL.get('daily', []) + config.QUEST_POOL.get('special', [])
             quest_template = next((q for q in quest_pool if q['id'] == quest_id), None)
             if not quest_template:
@@ -200,7 +199,6 @@ class QuestCommands(commands.Cog):
             if quest_type not in ['collect', 'collect_quality']:
                 return await interaction.followup.send("Bạn không thể trả nhiệm vụ loại này theo cách thủ công.")
 
-            # Kiểm tra xem đã đủ vật phẩm chưa
             target_id = quest_template.get('target_id')
             target_amount = quest_template.get('target_amount', 0)
             inventory_bucket = user_data.get('inventory', {}).get(target_id, {})
@@ -209,7 +207,7 @@ class QuestCommands(commands.Cog):
             if quest_type == 'collect_quality':
                 target_quality_str = str(quest_template.get('target_quality', 0))
                 current_amount = inventory_bucket.get(target_quality_str, 0)
-            else: # 'collect'
+            else:
                 current_amount = sum(inventory_bucket.values())
 
             if current_amount < target_amount:
@@ -223,7 +221,7 @@ class QuestCommands(commands.Cog):
                 target_quality_str = str(quest_template.get('target_quality', 0))
                 user_data['inventory'][target_id][target_quality_str] -= amount_to_remove
                 if user_data['inventory'][target_id][target_quality_str] <= 0: del user_data['inventory'][target_id][target_quality_str]
-            else: # 'collect'
+            else:
                 for quality_str in sorted(inventory_bucket.keys(), key=int):
                     if amount_to_remove <= 0: break
                     can_remove = min(amount_to_remove, inventory_bucket[quality_str])
@@ -231,7 +229,7 @@ class QuestCommands(commands.Cog):
                     if inventory_bucket[quality_str] <= 0: del inventory_bucket[quality_str]
                     amount_to_remove -= can_remove
             
-            if not user_data['inventory'][target_id]: del user_data['inventory'][target_id]
+            if not user_data['inventory'].get(target_id): del user_data['inventory'][target_id]
 
             # 2. Xóa nhiệm vụ khỏi danh sách active
             if quest_to_complete in user_quests.get('daily', []):
@@ -241,24 +239,52 @@ class QuestCommands(commands.Cog):
 
             # 3. Trao thưởng
             reward = quest_template.get('reward', {})
-            money_reward = reward.get('money', 0)
-            xp_reward = reward.get('xp', 0)
-            rep_reward = reward.get('rep', 0)
+            money_reward, xp_reward, rep_reward = reward.get('money', 0), reward.get('xp', 0), reward.get('rep', 0)
             npc_id = quest_template.get('npc')
 
             user_data['balance'] += money_reward
             user_data['xp'] += xp_reward
-            if npc_id:
-                user_quests.setdefault('reputation', {})[npc_id] = user_quests.setdefault('reputation', {}).get(npc_id, 0) + rep_reward
             
-            # 4. Gửi thông báo
+            # 4. Gửi thông báo hoàn thành nhiệm vụ
             npc_info = config.QUEST_NPCS.get(npc_id, {})
             embed = discord.Embed(title=f"✅ Trả Nhiệm vụ Thành công!", color=discord.Color.green())
             embed.description = f"Bạn đã hoàn thành nhiệm vụ **'{quest_template.get('title')}'** cho {npc_info.get('name')} {npc_info.get('emoji')}."
             embed.add_field(name="Phần thưởng nhận được", value=f"💰 {money_reward} | ✨ {xp_reward} XP | ❤️ {rep_reward} điểm thân thiện")
             
             await interaction.followup.send(embed=embed)
-            data_manager.save_player_data()
+
+            # 5. Kiểm tra phần thưởng thân thiện (sau khi đã gửi tin nhắn chính)
+            if npc_id:
+                user_quests.setdefault('reputation', {})[npc_id] = user_quests.setdefault('reputation', {}).get(npc_id, 0) + rep_reward
+                newly_unlocked = quest_manager.check_reputation_rewards(user_data, npc_id)
+                data_manager.save_player_data()
+
+                for reward_info in newly_unlocked:
+                    npc_name = config.QUEST_NPCS.get(npc_id, {}).get('name', 'Một người bạn')
+                    reward_embed = discord.Embed()
+                    
+                    if reward_info['type'] == 'recipe':
+                        recipe_name = config.RECIPES.get(reward_info['id'], {}).get('display_name', 'bí mật')
+                        reward_embed.title=f"📬 Bạn có thư từ {npc_name}!"
+                        reward_embed.description = f"\"_{reward_info['message']}_\"\n\nBạn đã học được công thức chế tạo **{recipe_name}**!"
+                        reward_embed.color = discord.Color.green()
+                    
+                    elif reward_info['type'] == 'gift':
+                        item_key = reward_info.get('item_key')
+                        item_type, item_id = item_key.split('_', 1)
+                        item_info = config.CROPS.get(item_id) if item_type == 'seed' else config.PRODUCTS.get(item_id, {})
+                        item_name = f"Hạt {item_info['display_name']}" if item_type == 'seed' else item_info.get('display_name', '?')
+                        item_emoji = item_info.get('emoji', '🎁')
+                        reward_embed.title=f"🎁 Bạn có quà từ {npc_name}!"
+                        reward_embed.description = f"\"_{reward_info['message']}_\"\n\nBạn nhận được **{reward_info['amount']} {item_emoji} {item_name}**!"
+                        reward_embed.color = discord.Color.blue()
+
+                    try:
+                        await interaction.user.send(embed=reward_embed)
+                    except discord.Forbidden:
+                        await interaction.channel.send(f"{interaction.user.mention}, bạn có thư mới nhưng tôi không thể gửi tin nhắn riêng cho bạn!")
+            else:
+                data_manager.save_player_data()
 
         except Exception as e:
             print(f"Lỗi trong lệnh /quests complete: {e}")

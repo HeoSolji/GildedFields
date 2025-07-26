@@ -90,7 +90,7 @@ SAPLING_EMOJI = "🌿"  # Giai đoạn cây non
 # --- DỮ LIỆU CÂY TRỒNG ---
 CROPS = {
     # Cây cũ đã được gán mùa
-    "wheat": {"grow_time": 180, "sell_price": 10, "seed_price": 5, "display_name": "Lúa mì", "emoji": CROP_EMOJIS["wheat"], "seasons": ["spring", "summer", "fall"]},
+    "wheat": {"grow_time": 180, "sell_price": 10, "seed_price": 5, "display_name": "Lúa mì", "emoji": CROP_EMOJIS["wheat"], "seasons": ["spring", "summer", "fall", "winter"]},
     "carrot": {"grow_time": 300, "sell_price": 25, "seed_price": 10, "display_name": "Cà rốt", "emoji": CROP_EMOJIS["carrot"], "seasons": ["spring"]},
     "potato": {"grow_time": 1800, "sell_price": 80, "seed_price": 30, "display_name": "Khoai tây", "emoji": CROP_EMOJIS["potato"], "seasons": ["spring"]},
     "onion": {"grow_time": 750, "sell_price": 30, "seed_price": 12, "display_name": "Hành tây", "emoji": CROP_EMOJIS["onion"], "seasons": ["summer"]},
@@ -127,7 +127,7 @@ GIANT_CROP_YIELD_MULTIPLIER = 9 # Sản lượng nhận được
 ANIMALS = {
     "chicken": {"display_name": "Gà", "emoji": "🐔", "buy_price": 200, "product_id": "egg", "production_time": 3600, "seasons": ["spring", "summer", "fall"]},
     "duck": {"display_name": "Vịt", "emoji": "🦆", "buy_price": 600, "product_id": "duck_egg", "production_time": 7200, "seasons": ["spring", "summer", "fall"]},
-    "cow": {"display_name": "Bò", "emoji": "🐮", "buy_price": 1000, "product_id": "milk", "production_time": 14400, "seasons": ["spring", "summer", "fall", "winter"]},
+    "cow": {"display_name": "Bò", "emoji": "🐮", "buy_price": 1000, "product_id": "milk", "production_time": 60, "seasons": ["spring", "summer", "fall", "winter"]},
     "goat": {"display_name": "Dê", "emoji": "🐐", "buy_price": 2000, "product_id": "goat_milk", "production_time": 28800, "seasons": ["spring", "summer", "fall", "winter"]},
     "sheep": {"display_name": "Cừu", "emoji": "🐑", "buy_price": 2500, "product_id": "wool", "production_time": 43200, "seasons": ["spring", "summer", "fall"]},
     "pig": {"display_name": "Heo", "emoji": "🐷", "buy_price": 5000, "product_id": "truffle", "production_time": 86400, "seasons": ["spring", "summer", "fall"]},
@@ -166,6 +166,18 @@ RECIPES = {
         "harvest_corn": 25 
     },
     "type": "machine"
+    },
+    "pumpkin_pie": {
+        "display_name": "Bánh Bí Ngô", "emoji": "🥧", "sell_price": 350,
+        "ingredients": {"harvest_pumpkin": 1, "harvest_wheat": 1, "product_egg": 1},
+        "type": "item",
+        "unlocked_by": "rep_johnson_1" # Đánh dấu là công thức cần mở khóa
+    },
+    "quality_bait": {
+        "display_name": "Mồi Câu Xịn", "emoji": "🐛", "sell_price": 20,
+        "ingredients": {"fish_carp": 2},
+        "type": "item",
+        "unlocked_by": "rep_barry_1"
     }
 }
 
@@ -291,7 +303,7 @@ PRICE_MODIFIERS = {
 
 # Dữ liệu các loại cá
 # { "tên_hệ_thống": { "tên_hiển_thị": ..., "emoji": ..., "giá_bán": ..., "độ_hiếm": ... } }
-FISHING_COOLDOWN = 60 # Thời gian chờ giữa mỗi lần câu (giây)
+FISHING_COOLDOWN = 5 # Thời gian chờ giữa mỗi lần câu (giây)
 
 FISH = {
     "carp": {"display_name": "Cá Chép", "emoji": "🐟", "sell_price": 30, "rarity": 0.5},
@@ -352,6 +364,18 @@ QUEST_POOL = {
         {"id": "s_collect_cheese_gold", "npc": "johnson", "type": "collect_quality", "target_id": "crafted_cheese", "target_quality": 2, "target_amount": 10, "title": "Đặc sản cho nhà hàng", "duration_days": 3, "objective": "Một nhà hàng 5 sao muốn đặt **{amount}** {emoji} **{name}** chất lượng Vàng 🌟.", "reward": {"money": 7500, "xp": 1500, "rep": 75}},
         {"id": "s_fish_catfish", "npc": "barry", "type": "collect", "target_id": "fish_catfish", "target_amount": 5, "title": "Treo thưởng Cá Trê", "duration_days": 3, "objective": "Tôi nghe đồn có một con {emoji} **{name}** rất lớn ở hồ. Cậu câu giúp tôi **{amount}** con được không?", "reward": {"money": 6000, "xp": 1200, "rep": 60}},
     ]
+}
+
+# Các mốc phần thưởng dựa trên điểm thân thiện
+# Cấu trúc: { "npc_id": { level: {"type": "...", "data": ...} } }
+REPUTATION_REWARDS = {
+    "johnson": {
+        50: {"type": "recipe", "id": "pumpkin_pie", "message": "Này cháu, ta thấy cháu rất chăm chỉ. Đây là công thức làm Bánh Bí Ngô gia truyền của ta, xem như là một món quà nhỏ!"},
+        100: {"type": "gift", "item_key": "seed_starfruit", "amount": 1, "message": "Ta coi cháu như người nhà vậy. Ta tìm được một loại hạt giống rất hiếm trong chuyến đi vừa rồi, ta nghĩ cháu sẽ biết cách chăm sóc nó."}
+    },
+    "barry": {
+        50: {"type": "recipe", "id": "quality_bait", "message": "Này nhóc, ta thấy tố chất của một tay câu cừ khôi trong cậu. Cầm lấy công thức làm Mồi Câu Xịn này, nó sẽ giúp cậu câu được cá to hơn đấy!"}
+    }
 }
 
 def get_grow_time_string(seconds):

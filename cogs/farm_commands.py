@@ -10,10 +10,11 @@ import config
 import season_manager
 import random
 import achievement_manager
-from utils import determine_quality
+# from utils import determine_quality
 import math
 import asyncio
 import quest_manager
+import utils
 
 # --- CLASS VIEW ĐỂ CHỨA NÚT BẤM (Giữ nguyên) ---
 class FarmView(discord.ui.View):
@@ -429,20 +430,20 @@ class Farm(commands.Cog):
 
             planted_count = 0
             for i in range(min(số_lượng, len(empty_plots))):
-                quality = determine_quality()
+                quality = utils.determine_quality()
+                print(f"Chất lượng cây vừa trồng: {quality}") # Giữ lại dòng debug này
                 plot_key = sorted(empty_plots, key=lambda x: (int(x.split('_')[0]), int(x.split('_')[1])))[i]
                 user_data['farm']['plots'][plot_key] = {"crop": crop_id, "plant_time": time.time(), "ready_time": time.time() + crop_info["grow_time"], "quality": quality}
                 
-                # SỬA LỖI: Trừ và dọn dẹp kho đồ một cách an toàn
                 user_data['inventory'][seed_key]['0'] -= 1
-                if user_data['inventory'][seed_key]['0'] <= 0:
-                    del user_data['inventory'][seed_key]['0']
-                if not user_data['inventory'][seed_key]:
-                    del user_data['inventory'][seed_key]
+                if user_data['inventory'][seed_key]['0'] <= 0: del user_data['inventory'][seed_key]
                 
                 planted_count += 1
             
+            # --- DÒNG QUAN TRỌNG NHẤT ĐỂ KÍCH HOẠT THÔNG BÁO ---
             user_data['farm']['notification_sent'] = False
+            # ---------------------------------------------------
+            
             data_manager.save_player_data()
             await interaction.response.send_message(f"Đã trồng thành công {planted_count} {crop_info['emoji']} {crop_info['display_name']}.")
         except Exception as e:

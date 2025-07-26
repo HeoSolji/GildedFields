@@ -13,17 +13,8 @@ def run_update():
     player_collection = db.players
     print("Đã kết nối tới MongoDB.")
 
-    filter_query = {"quests": {"$exists": False}}
-    update_operation = {
-        "$set": {
-            "quests": {
-                "daily": [],
-                "special": None,
-                "last_updated": 0,
-                "reputation": {"johnson": 0, "barry": 0}
-            }
-        }
-    }
+    filter_query = {"quests.unlocked_recipes": {"$exists": False}}
+    update_operation = {"$set": {"quests.unlocked_recipes": []}}
 
     result = player_collection.update_many(filter_query, update_operation)
     print(f"\n✅ Hoàn tất! Đã cập nhật {result.modified_count} người chơi.")
