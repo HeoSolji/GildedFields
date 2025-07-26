@@ -275,7 +275,6 @@ class Economy(commands.Cog):
     @app_commands.describe(số_thứ_tự="Số thứ tự của hạt giống trong /shop.", số_lượng="Số lượng bạn muốn mua.")
     async def buy_seed(self, interaction: discord.Interaction, số_thứ_tự: int, số_lượng: int = 1):
         """Mua hạt giống từ cửa hàng."""
-        # ... (phần code kiểm tra user, số lượng, mùa, index giữ nguyên)
         try:
             user_data = data_manager.get_player_data(interaction.user.id)
             if not user_data: return await interaction.response.send_message('Bạn chưa đăng ký!', ephemeral=True)
@@ -289,56 +288,65 @@ class Economy(commands.Cog):
 
             crop_id, crop_info = seasonal_shop_items[index]
             total_cost = crop_info['seed_price'] * số_lượng
-            if user_data['balance'] < total_cost: return await interaction.response.send_message(f'Bạn không đủ tiền!', ephemeral=True)
+            if user_data['balance'] < total_cost: return await interaction.response.send_message(f'Bạn không đủ tiền! Cần {total_cost} {config.CURRENCY_SYMBOL}.', ephemeral=True)
 
             user_data['balance'] -= total_cost
             
-            # --- LOGIC MỚI: LƯU HẠT GIỐNG VỚI ĐÚNG CẤU TRÚC ---
             seed_key = f"seed_{crop_id}"
-            # setdefault sẽ tạo ra dict rỗng {} nếu seed_key chưa tồn tại
             user_data['inventory'].setdefault(seed_key, {})
-            # Thêm số lượng vào bucket chất lượng "0" (vì hạt giống không có sao)
             user_data['inventory'][seed_key]['0'] = user_data['inventory'][seed_key].get('0', 0) + số_lượng
-            # ---------------------------------------------------
             
             await interaction.response.send_message(f'Bạn đã mua {số_lượng} {crop_info["emoji"]} Hạt {crop_info["display_name"]} với giá {total_cost} {config.CURRENCY_SYMBOL}.')
             data_manager.save_player_data()
         except Exception as e:
             print(f"Lỗi trong lệnh /buyseed: {e}")
-            await interaction.response.send_message("Có lỗi xảy ra khi mua hạt giống.", ephemeral=True)
-
+            if not interaction.response.is_done():
+                await interaction.response.send_message("Có lỗi xảy ra khi mua hạt giống.", ephemeral=True)
 
     @app_commands.command(name="buyanimal", description="Mua vật nuôi từ cửa hàng.")
     @app_commands.describe(số_thứ_tự="Số thứ tự của vật nuôi trong /shop.", số_lượng="Số lượng bạn muốn mua.")
     async def buy_animal(self, interaction: discord.Interaction, số_thứ_tự: int, số_lượng: int = 1):
-        user_data = data_manager.get_player_data(interaction.user.id)
-        if not user_data: return await interaction.response.send_message('Bạn chưa đăng ký!', ephemeral=True)
-        if số_lượng <= 0: return await interaction.response.send_message("Số lượng phải lớn hơn 0.", ephemeral=True)
+        try:
+            user_data = data_manager.get_player_data(interaction.user.id)
+            if not user_data: return await interaction.response.send_message('Bạn chưa đăng ký!', ephemeral=True)
+            if số_lượng <= 0: return await interaction.response.send_message("Số lượng phải lớn hơn 0.", ephemeral=True)
 
-        current_season = season_manager.get_current_season()['name']
-        seasonal_shop_items = self._get_seasonal_animals(current_season)
+            current_season = season_manager.get_current_season()['name']
+            seasonal_shop_items = self._get_seasonal_animals(current_season)
 
-        index = số_thứ_tự - 1
-        if not (0 <= index < len(seasonal_shop_items)): return await interaction.response.send_message(f'STT `{số_thứ_tự}` không hợp lệ cho mùa này.', ephemeral=True)
-        
-        animal_id, animal_info = seasonal_shop_items[index]
-        barn = user_data['barn']
-        current_animal_count = sum(len(animal_list) for animal_list in barn.get('animals', {}).values())
-        if current_animal_count + số_lượng > barn['capacity']:
-            return await interaction.response.send_message(f"Chuồng không đủ chỗ!", ephemeral=True)
+            index = số_thứ_tự - 1
+            if not (0 <= index < len(seasonal_shop_items)): return await interaction.response.send_message(f'STT `{số_thứ_tự}` không hợp lệ cho mùa này.', ephemeral=True)
+            
+            animal_id, animal_info = seasonal_shop_items[index]
+            barn = user_data.get('barn', {})
+            current_animal_count = sum(len(animal_list) for animal_list in barn.get('animals', {}).values())
+            
+            if current_animal_count + số_lượng > barn.get('capacity', 0):
+                return await interaction.response.send_message(f"Chuồng không đủ chỗ! Chỗ trống: {barn.get('capacity', 0) - current_animal_count}.", ephemeral=True)
 
-        total_cost = animal_info['buy_price'] * số_lượng
-        if user_data['balance'] < total_cost: return await interaction.response.send_message(f'Bạn không đủ tiền!', ephemeral=True)
+            total_cost = animal_info['buy_price'] * số_lượng
+            if user_data['balance'] < total_cost: return await interaction.response.send_message(f'Bạn không đủ tiền! Cần {total_cost} {config.CURRENCY_SYMBOL}.', ephemeral=True)
 
-        user_data['balance'] -= total_cost
-        current_time = time.time()
-        new_ready_times = [current_time + animal_info['production_time']] * số_lượng
-        if animal_id in barn['animals']: barn['animals'][animal_id].extend(new_ready_times)
-        else: barn['animals'][animal_id] = new_ready_times
-        user_data['barn']['notification_sent'] = False
-        
-        await interaction.response.send_message(f'Bạn đã mua {số_lượng} {animal_info["emoji"]} {animal_info["display_name"]} với giá {total_cost} {config.CURRENCY_SYMBOL}.')
-        data_manager.save_player_data()
+            user_data['balance'] -= total_cost
+            current_time = time.time()
+            new_ready_times = [current_time + animal_info['production_time']] * số_lượng
+            
+            barn.setdefault('animals', {})
+            if animal_id in barn['animals']:
+                barn['animals'][animal_id].extend(new_ready_times)
+            else:
+                barn['animals'][animal_id] = new_ready_times
+            
+            user_data['barn']['notification_sent'] = False
+            print(f"[NOTIF FLAG] Barn notification set to FALSE for user {interaction.user.id}")
+            
+            await interaction.response.send_message(f'Bạn đã mua {số_lượng} {animal_info["emoji"]} {animal_info["display_name"]} với giá {total_cost} {config.CURRENCY_SYMBOL}.')
+            data_manager.save_player_data()
+        except Exception as e:
+            print(f"Lỗi trong lệnh /buyanimal: {e}")
+            if not interaction.response.is_done():
+                await interaction.response.send_message("Có lỗi xảy ra khi mua vật nuôi.", ephemeral=True)
+
 
 
     @app_commands.command(name="market", description="Kiểm tra các sự kiện thị trường đang diễn ra.")

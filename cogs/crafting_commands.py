@@ -25,20 +25,37 @@ class CraftingCommands(commands.Cog):
             lines.append(f"{emoji} {name}: {quantity}")
         return ", ".join(lines)
 
-    @app_commands.command(name="craftlist", description="Xem danh sách tất cả các công thức chế tạo.")
+    @app_commands.command(name="craftlist", description="Xem danh sách tất cả các công thức chế tạo bạn đã biết.")
     async def craft_list(self, interaction: discord.Interaction):
+        user_data = data_manager.get_player_data(interaction.user.id)
+        if not user_data: 
+            return await interaction.response.send_message("Bạn chưa đăng ký!", ephemeral=True)
+
+        unlocked_recipes_list = user_data.get('quests', {}).get('unlocked_recipes', [])
+        
         embed = discord.Embed(title="📜 Sổ tay Công thức Chế tạo", color=discord.Color.orange())
-        if not config.RECIPES:
-            embed.description = "Hiện chưa có công thức nào."
+        
+        # Lọc ra danh sách các công thức người chơi có thể thấy
+        available_recipes = []
+        for recipe_id, recipe_info in config.RECIPES.items():
+            unlock_key = recipe_info.get("unlocked_by")
+            # Điều kiện hiển thị: không cần mở khóa, HOẶC đã được mở khóa
+            if not unlock_key or recipe_id in unlocked_recipes_list:
+                available_recipes.append((recipe_id, recipe_info))
+
+        if not available_recipes:
+            embed.description = "Bạn chưa biết công thức chế tạo nào cả. Hãy thử làm nhiệm vụ để tăng thân thiện với dân làng nhé!"
             return await interaction.response.send_message(embed=embed)
         
-        recipes = list(config.RECIPES.items())
         description_lines = []
-        for index, (recipe_id, recipe_info) in enumerate(recipes):
+        # Lặp qua danh sách đã được lọc
+        for index, (recipe_id, recipe_info) in enumerate(available_recipes):
             ingredient_str = self.get_ingredient_string(recipe_info['ingredients'])
-            line = (f"**{index + 1}.** {recipe_info['emoji']} **{recipe_info['display_name']}**\n"
-                    f"   **Cần:** {ingredient_str}\n"
-                    f"   **Giá bán:** {recipe_info['sell_price']} {config.CURRENCY_SYMBOL}")
+            line = (
+                f"**{index + 1}.** {recipe_info['emoji']} **{recipe_info['display_name']}**\n"
+                f"   **Cần:** {ingredient_str}\n"
+                f"   **Giá bán:** {recipe_info['sell_price']} {config.CURRENCY_SYMBOL}"
+            )
             description_lines.append(line)
         
         embed.description = "\n\n".join(description_lines)

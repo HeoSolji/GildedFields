@@ -157,6 +157,24 @@ class Progression(commands.Cog):
                     )
         
         await interaction.response.send_message(embed=embed)
+        
+    @app_commands.command(name="reputation", description="Xem điểm thân thiện của bạn với các dân làng.")
+    async def reputation(self, interaction: discord.Interaction):
+        user_data = data_manager.get_player_data(interaction.user.id)
+        if not user_data: return await interaction.response.send_message("Bạn chưa đăng ký!", ephemeral=True)
 
+        reputation_data = user_data.get('quests', {}).get('reputation', {})
+        embed = discord.Embed(title=f"❤️ Bảng Thân thiện của {interaction.user.name}", color=discord.Color.pink())
+        
+        if not reputation_data:
+            embed.description = "Bạn chưa làm quen với ai cả."
+        else:
+            lines = []
+            for npc_id, points in reputation_data.items():
+                npc_info = config.QUEST_NPCS.get(npc_id, {})
+                lines.append(f"**{npc_info.get('emoji', '')} {npc_info.get('name', '???')}**: {points} điểm")
+            embed.description = "\n".join(lines)
+        
+        await interaction.response.send_message(embed=embed)
 async def setup(bot):
     await bot.add_cog(Progression(bot))
