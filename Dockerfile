@@ -1,14 +1,11 @@
-# Sử dụng Python 3.11
 FROM python:3.11-slim
 
-# Thiết lập thư mục làm việc
+RUN apt-get update && apt-get install -y gcc libffi-dev libssl-dev
+
 WORKDIR /app
 
-# Copy code vào container
 COPY . /app
 
-# Cài thư viện
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Chạy bot
 CMD ["python", "bot.py"]
