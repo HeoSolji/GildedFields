@@ -206,7 +206,7 @@ async def on_ready():
 
 # --- KHỐI CHẠY CHÍNH ---
 async def main():
-    # keep_alive()
+    keep_alive()
     async with bot:
         await bot.start(TOKEN)
 
