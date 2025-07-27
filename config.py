@@ -41,9 +41,9 @@ CROP_EMOJIS = {
     "bok_choy": "🥬", "yam": "🍠", "cranberries": "🍒",
     "ancient_fruit": "<:ancient_fruit:1398639919869722786>",
     "starfruit": "<:starfruit:1398639835711017012>",
-    "crystal_fruit": "<:crystal_fruit:1398648944417968208>",
-    "snowdrop": "<:snowdrop:1398648968275038249>",
-    "winter_root": "<:winter_root:1398648919856123964>",
+    "crystal_fruit": "<:crystal_fruit:1398851638114127904>",
+    "snowdrop": "<:snowdrop:1398851601841520650>",
+    "winter_root": "<:winter_root:1398851676009533482>",
 }
 
 # Tỉ lệ ra cấp sao (cơ hội để đạt được cấp đó HOẶC CAO HƠN)
