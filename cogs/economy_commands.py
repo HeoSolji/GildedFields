@@ -5,6 +5,7 @@ from discord.ext import commands
 from discord import app_commands
 import time, math
 import data_manager, config, season_manager, market_manager, achievement_manager
+import uuid
 
 
 class ConfirmSellAllView(discord.ui.View):
@@ -303,50 +304,68 @@ class Economy(commands.Cog):
             if not interaction.response.is_done():
                 await interaction.response.send_message("Có lỗi xảy ra khi mua hạt giống.", ephemeral=True)
 
-    @app_commands.command(name="buyanimal", description="Mua vật nuôi từ cửa hàng.")
-    @app_commands.describe(số_thứ_tự="Số thứ tự của vật nuôi trong /shop.", số_lượng="Số lượng bạn muốn mua.")
-    async def buy_animal(self, interaction: discord.Interaction, số_thứ_tự: int, số_lượng: int = 1):
+    @app_commands.command(name="buyanimal", description="Mua và đặt tên cho một vật nuôi mới.")
+    @app_commands.describe(số_thứ_tự="Số thứ tự của vật nuôi trong /shop.", tên="Tên bạn muốn đặt cho vật nuôi (tối đa 20 ký tự).")
+    async def buy_animal(self, interaction: discord.Interaction, số_thứ_tự: int, tên: str):
         try:
+            await interaction.response.defer()
             user_data = data_manager.get_player_data(interaction.user.id)
-            if not user_data: return await interaction.response.send_message('Bạn chưa đăng ký!', ephemeral=True)
-            if số_lượng <= 0: return await interaction.response.send_message("Số lượng phải lớn hơn 0.", ephemeral=True)
+            if not user_data: 
+                return await interaction.followup.send('Bạn chưa đăng ký!', ephemeral=True)
+
+            # --- VALIDATION ---
+            if len(tên) > 20:
+                return await interaction.followup.send("Tên vật nuôi quá dài! Tối đa 20 ký tự.", ephemeral=True)
+            if len(tên) < 1:
+                return await interaction.followup.send("Tên vật nuôi không được để trống.", ephemeral=True)
 
             current_season = season_manager.get_current_season()['name']
             seasonal_shop_items = self._get_seasonal_animals(current_season)
 
             index = số_thứ_tự - 1
-            if not (0 <= index < len(seasonal_shop_items)): return await interaction.response.send_message(f'STT `{số_thứ_tự}` không hợp lệ cho mùa này.', ephemeral=True)
+            if not (0 <= index < len(seasonal_shop_items)): 
+                return await interaction.followup.send(f'STT `{số_thứ_tự}` không hợp lệ cho mùa này.', ephemeral=True)
             
             animal_id, animal_info = seasonal_shop_items[index]
             barn = user_data.get('barn', {})
+            
             current_animal_count = sum(len(animal_list) for animal_list in barn.get('animals', {}).values())
             
-            if current_animal_count + số_lượng > barn.get('capacity', 0):
-                return await interaction.response.send_message(f"Chuồng không đủ chỗ! Chỗ trống: {barn.get('capacity', 0) - current_animal_count}.", ephemeral=True)
+            if current_animal_count + 1 > barn.get('capacity', 0):
+                return await interaction.followup.send(f"Chuồng không đủ chỗ! (Đang có: {current_animal_count}/{barn.get('capacity', 0)})", ephemeral=True)
 
-            total_cost = animal_info['buy_price'] * số_lượng
-            if user_data['balance'] < total_cost: return await interaction.response.send_message(f'Bạn không đủ tiền! Cần {total_cost} {config.CURRENCY_SYMBOL}.', ephemeral=True)
+            total_cost = animal_info['buy_price']
+            if user_data['balance'] < total_cost: 
+                return await interaction.followup.send(f"Bạn không đủ tiền! Cần {total_cost} {config.CURRENCY_SYMBOL}.", ephemeral=True)
 
+            # --- THỰC HIỆN MUA BÁN ---
             user_data['balance'] -= total_cost
-            current_time = time.time()
-            new_ready_times = [current_time + animal_info['production_time']] * số_lượng
             
+            # Tạo một đối tượng vật nuôi mới, duy nhất
+            new_animal_object = {
+                "id": str(uuid.uuid4()),
+                "name": tên,
+                "ready_time": time.time() + animal_info['production_time']
+            }
+            
+            # Thêm đối tượng vào danh sách
             barn.setdefault('animals', {})
-            if animal_id in barn['animals']:
-                barn['animals'][animal_id].extend(new_ready_times)
-            else:
-                barn['animals'][animal_id] = new_ready_times
+            barn['animals'].setdefault(animal_id, []).append(new_animal_object)
             
+            # Kích hoạt hệ thống thông báo
             user_data['barn']['notification_sent'] = False
-            print(f"[NOTIF FLAG] Barn notification set to FALSE for user {interaction.user.id}")
             
-            await interaction.response.send_message(f'Bạn đã mua {số_lượng} {animal_info["emoji"]} {animal_info["display_name"]} với giá {total_cost} {config.CURRENCY_SYMBOL}.')
             data_manager.save_player_data()
+
+            # Gửi tin nhắn công khai để mọi người cùng thấy
+            await interaction.followup.send(f'{interaction.user.mention} đã mua một con {animal_info["emoji"]} và đặt tên cho nó là **{tên}**!')
+
         except Exception as e:
             print(f"Lỗi trong lệnh /buyanimal: {e}")
             if not interaction.response.is_done():
                 await interaction.response.send_message("Có lỗi xảy ra khi mua vật nuôi.", ephemeral=True)
-
+            else:
+                await interaction.followup.send("Có lỗi xảy ra khi mua vật nuôi.", ephemeral=True)
 
 
     @app_commands.command(name="market", description="Kiểm tra các sự kiện thị trường đang diễn ra.")

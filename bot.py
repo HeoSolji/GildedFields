@@ -98,8 +98,8 @@ async def check_harvest_notifications():
                 animals_in_barn = barn_data.get('animals', {})
                 is_any_animal_ready = False
                 if animals_in_barn:
-                    for ready_times in animals_in_barn.values():
-                        if any(current_time >= rt for rt in ready_times):
+                    for animal_list in animals_in_barn.values():
+                        if any(current_time >= animal.get('ready_time', float('inf')) for animal in animal_list if isinstance(animal, dict)):
                             is_any_animal_ready = True
                             break
                 
@@ -206,7 +206,7 @@ async def on_ready():
 
 # --- KHỐI CHẠY CHÍNH ---
 async def main():
-    keep_alive()
+    # keep_alive()
     async with bot:
         await bot.start(TOKEN)
 

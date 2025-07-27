@@ -19,6 +19,7 @@ MAX_FARM_SIZE = 5
 
 # --- Cài đặt chăn nuôi ---
 INITIAL_BARN_CAPACITY = 5
+ANIMAL_SELL_MULTIPLIER = 0.75
 
 BARN_UPGRADES = {
     # new_capacity: {"cost": chi_phí, "level_required": cấp_độ_yêu_cầu}
